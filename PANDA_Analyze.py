@@ -1,0 +1,240 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import re
+import os
+
+RESULTS_DIR = os.path.join("Results", "Current")
+os.makedirs(RESULTS_DIR, exist_ok=True)
+
+# -----------------------------
+# Parse run.mac
+# -----------------------------
+particle = None
+energy = None
+beamXY = None
+sensitiveXY = None
+deadThickness = None
+nParticles = None
+criticalCharge = None
+useCollectionModel = None
+
+with open("run.mac", "r") as f:
+    for line in f:
+        if "/sim/particle" in line:
+            particle = line.split()[-1]
+
+        elif "/sim/energy" in line:
+            m = re.search(r'/sim/energy\s+([\d\.]+)', line)
+            if m:
+                energy = float(m.group(1))
+
+        elif "/sim/beamXY" in line:
+            m = re.search(r'/sim/beamXY\s+([\d\.]+)', line)
+            if m:
+                beamXY = float(m.group(1))
+
+        elif "/sim/sensitiveXY" in line:
+            m = re.search(r'/sim/sensitiveXY\s+([\d\.]+)', line)
+            if m:
+                sensitiveXY = float(m.group(1))
+
+        elif "/sim/deadThickness" in line:
+            m = re.search(r'/sim/deadThickness\s+([\d\.]+)', line)
+            if m:
+                deadThickness = float(m.group(1))
+
+        elif "/sim/criticalCharge" in line:
+            m = re.search(r'/sim/criticalCharge\s+([\d\.]+)', line)
+            if m:
+                criticalCharge = float(m.group(1))
+
+        elif "/sim/useCollectionModel" in line:
+            useCollectionModel = line.split()[-1].strip().lower() == "true"
+
+        elif "/run/beamOn" in line:
+            m = re.search(r'/run/beamOn\s+(\d+)', line)
+            if m:
+                nParticles = int(m.group(1))
+
+beam_area_cm2 = (beamXY * 1e-4)**2
+fluence = nParticles / beam_area_cm2
+
+print("\nRun conditions:")
+print("Particle:", particle)
+print("Energy (MeV):", energy)
+print("Beam XY (um):", beamXY)
+print("Sensitive XY (um):", sensitiveXY)
+print("Dead layer (um):", deadThickness)
+print("Particles:", nParticles)
+print("Critical charge (fC):", criticalCharge)
+print("Upset criterion uses:",
+      "CollectedCharge_fC" if useCollectionModel else "DepositedCharge_fC")
+
+# -----------------------------
+# Metrics to analyze
+# -----------------------------
+# Both charge quantities are always present in the CSV now, so we always
+# analyze both rather than guessing which one the user "meant". This
+# keeps the analysis in sync with the simulation regardless of how
+# /sim/useCollectionModel was set for a given run.
+METRICS = {
+    "DepositedCharge_fC": {
+        "label": "Deposited Charge",
+        "suffix": "deposited",
+    },
+    "CollectedCharge_fC": {
+        "label": "Collected Charge",
+        "suffix": "collected",
+    },
+}
+
+bins = np.logspace(-3, 3, 400)
+bin_centers = np.sqrt(bins[:-1] * bins[1:])
+
+stats = {
+    key: {
+        "hist": np.zeros(len(bins) - 1),
+        "min": np.inf,
+        "max": -np.inf,
+        "sum": 0.0,
+        "count": 0,
+    }
+    for key in METRICS
+}
+
+# -----------------------------
+# Stream CSV once, updating all metrics together
+# -----------------------------
+events_csv_path = os.path.join(RESULTS_DIR, "events.csv")
+csv_header = pd.read_csv(events_csv_path, nrows=0).columns.tolist()
+has_weight_column = "EventWeight" in csv_header
+
+if has_weight_column:
+    usecols = list(METRICS.keys()) + ["EventWeight"]
+    print("EventWeight column found -- building bias-corrected (weighted) histograms.")
+else:
+    usecols = list(METRICS.keys())
+    print("No EventWeight column found (older events.csv) -- assuming weight=1.0 for all events.")
+
+for chunk in pd.read_csv(
+    events_csv_path,
+    usecols=usecols,
+    chunksize=1000000
+):
+    if has_weight_column:
+        w = chunk["EventWeight"].values
+    else:
+        w = np.ones(len(chunk))
+
+    for key in METRICS:
+        q = chunk[key].values
+
+        # Weighted histogram: each event contributes its own weight
+        # (1.0 unless biasing is active) rather than a flat count of 1.
+        # This is what keeps the differential spectrum and cumulative
+        # cross section statistically correct when cross-section
+        # biasing (SEEBiasingOperator) has been used -- otherwise the
+        # artificially boosted rare events would be overcounted by
+        # roughly the bias factor.
+        h, _ = np.histogram(q, bins=bins, weights=w)
+        s = stats[key]
+        s["hist"] += h
+        s["min"] = min(s["min"], np.min(q))
+        s["max"] = max(s["max"], np.max(q))
+        # Weighted sum for an unbiased mean estimate: mean = sum(w*q) / N,
+        # where N is the actual number of primaries simulated (NOT the
+        # sum of weights) -- standard importance-sampling estimator.
+        s["sum"] += np.sum(q * w)
+        s["count"] += len(q)
+
+# -----------------------------
+# Plots + CSV output, per metric
+# -----------------------------
+for key, meta in METRICS.items():
+    label = meta["label"]
+    suffix = meta["suffix"]
+    s = stats[key]
+    hist = s["hist"]
+    countQ = s["count"]
+
+    # Differential spectrum
+    plt.figure(figsize=(8, 6))
+    plt.step(bin_centers, hist, where='mid')
+    plt.xscale("log")
+    plt.yscale("log")
+    plt.xlabel(f"{label} (fC)")
+    plt.ylabel("Counts")
+    plt.title(f"PANDA Differential Charge Spectrum ({label})")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(
+        os.path.join(RESULTS_DIR, f"differential_charge_spectrum_{suffix}.png")
+    )
+    plt.close()
+
+    # Cumulative probability
+    cum_counts = np.cumsum(hist[::-1])[::-1]
+    prob = cum_counts / countQ
+
+    plt.figure(figsize=(8, 6))
+    plt.plot(bin_centers, prob)
+    plt.xscale("log")
+    plt.yscale("log")
+    plt.xlabel(f"{label} Threshold (fC)")
+    plt.ylabel("P(Q ≥ q)")
+    plt.title(f"PANDA Cumulative Probability ({label})")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(
+        os.path.join(RESULTS_DIR, f"cumulative_probability_{suffix}.png")
+    )
+    plt.close()
+
+    # Cross section
+    sigma = beam_area_cm2 * prob
+
+    plt.figure(figsize=(8, 6))
+    plt.plot(bin_centers, sigma)
+    plt.xscale("log")
+    plt.yscale("log")
+    plt.xlabel(f"{label} Threshold (fC)")
+    plt.ylabel("Cross Section (cm²)")
+    plt.title(f"PANDA Cumulative Cross Section ({label})")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(
+        os.path.join(RESULTS_DIR, f"cumulative_cross_section_{suffix}.png")
+    )
+    plt.close()
+
+    out = pd.DataFrame({
+        "ChargeThreshold_fC": bin_centers,
+        "Probability": prob,
+        "CrossSection_cm2": sigma
+    })
+
+    out.to_csv(
+        os.path.join(RESULTS_DIR, f"cumulative_cross_section_{suffix}.csv"),
+        index=False
+    )
+
+    print(f"\n[{label}] statistics:")
+    print("  Min:", s["min"], "fC")
+    print("  Mean:", s["sum"] / countQ, "fC")
+    print("  Max:", s["max"], "fC")
+
+    if criticalCharge is not None:
+        # Interpolate P(Q >= criticalCharge) from the cumulative curve
+        p_at_qc = np.interp(criticalCharge, bin_centers, prob)
+        print(f"  P(Q >= {criticalCharge} fC):", p_at_qc)
+
+print("\nSaved to:", RESULTS_DIR)
+for meta in METRICS.values():
+    suffix = meta["suffix"]
+    print(f"  differential_charge_spectrum_{suffix}.png")
+    print(f"  cumulative_probability_{suffix}.png")
+    print(f"  cumulative_cross_section_{suffix}.png")
+    print(f"  cumulative_cross_section_{suffix}.csv")
+
+print("\nDone.")

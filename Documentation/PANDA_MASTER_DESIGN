@@ -1,0 +1,354 @@
+# PANDA_MASTER_DESIGN.md
+
+**Project:** PANDA – *Protons And Neutron charge Deposition in mAterials*
+
+**Author:** Mark Savage
+
+**Architectural Design Document**
+
+**Version:** 1.0
+
+**Status:** APPROVED (Architecture Freeze)
+
+---
+
+# 1. Purpose
+
+PANDA is a Monte Carlo simulation framework built upon Geant4 for calculating the deposition of charge produced by energetic particles in semiconductor materials.
+
+Unlike traditional Single Event Effect (SEE) tools, PANDA does **not** calculate upset probabilities directly.
+
+Its primary purpose is to calculate the physical quantity
+
+> **Collected Charge**
+
+resulting from particle interactions within arbitrary semiconductor structures.
+
+Everything else is derived from this quantity.
+
+---
+
+# 2. Project Philosophy
+
+PANDA shall be developed according to the following philosophy:
+
+> **Transport First. Interpretation Second.**
+
+The Geant4 engine is responsible only for particle transport and charge deposition.
+
+Interpretation of that deposited charge (SEE, detector response, validation, etc.) belongs entirely to post-processing software.
+
+---
+
+# 3. Project Architecture
+
+```
+                    PANDA
+             (Geant4 Physics Engine)
+
+                       │
+
+                 events.csv
+
+             ┌─────────┴─────────┐
+
+             │                   │
+
+      PANDA_Analyze.py     PANDAEX_Analyze.py
+
+      SEE Engineering      Experimental Validation
+```
+
+The output file **events.csv** is the canonical interface between the simulation engine and all analysis software.
+
+---
+
+# 4. Responsibilities
+
+## PANDA (Geant4 Engine)
+
+Responsibilities:
+
+* Particle generation
+* Particle transport
+* Nuclear reactions
+* Charge deposition
+* Event recording
+* Output events.csv
+
+The PANDA engine performs **no experimental interpretation** and **no SEE analysis**.
+
+---
+
+## PANDA_Analyze.py
+
+Purpose:
+
+Engineering analysis for Single Event Effects.
+
+Outputs include:
+
+* Differential Charge Spectrum
+* Cumulative Probability
+* Cumulative Cross Section
+* SEE statistics
+
+Target audience:
+
+* Radiation Effects Engineers
+* CREME-MC users
+* CUPID users
+
+---
+
+## PANDAEX_Analyze.py
+
+Purpose:
+
+Experimental detector validation.
+
+Outputs include:
+
+* Detector statistics
+* Differential Energy Spectrum
+* Differential Charge Spectrum
+* Integral Energy Spectrum
+* Integral Charge Spectrum
+* Burst Generation Rate
+* Validation reports
+
+Target audience:
+
+* Detector Physicists
+* Monte Carlo Developers
+* Scientific Publications
+
+---
+
+# 5. Architecture Freeze
+
+The following components are considered frozen.
+
+## PANDA
+
+Frozen.
+
+No modifications shall be made to:
+
+* Geometry
+* Charge calculation
+* Physics list
+* EventAction
+* SteppingAction
+* Sensitive detector
+* Output format
+
+Exception:
+
+Configurable maximum step size inside the sensitive volume.
+
+---
+
+## PANDA_Analyze.py
+
+Frozen.
+
+No experimental validation code shall ever be added.
+
+Only bug fixes are permitted.
+
+---
+
+# 6. Future Development
+
+All future detector-response development shall occur exclusively inside
+
+```
+PANDAEX_Analyze.py
+```
+
+No detector validation code shall be placed inside PANDA or PANDA_Analyze.
+
+---
+
+# 7. Output Philosophy
+
+PANDA produces exactly one canonical data product:
+
+```
+events.csv
+```
+
+Everything else is derived from this file.
+
+---
+
+# 8. Results Directory
+
+Simulation output shall not clutter the build directory.
+
+Each run shall create
+
+```
+Results/
+
+    Run_Name/
+
+        events.csv
+
+        run.mac
+
+        run_parameters.txt
+
+        simulation.log
+
+        Analysis/
+
+        Validation/
+```
+
+The exact directory naming convention may evolve, but all simulation products shall reside beneath the Results directory.
+
+---
+
+# 9. PANDAEX Development Roadmap
+
+## Version 0.1
+
+Read events.csv
+
+Compute detector statistics.
+
+Generate:
+
+* Differential Charge Spectrum
+* Differential Energy Spectrum
+* Integral Charge Spectrum
+* Integral Energy Spectrum
+
+---
+
+## Version 0.2
+
+Generate detector reports.
+
+---
+
+## Version 0.3
+
+Publication-quality figures.
+
+---
+
+## Version 0.4
+
+Validation framework.
+
+---
+
+## Version 1.0
+
+Experimental validation against:
+
+* ORTEC Alpha Detector
+* McNulty Silicon Barrier Detector
+* Elevant
+* Frascati
+
+---
+
+# 10. Validation Philosophy
+
+PANDA shall be validated using published experimental detector-response measurements before being used to predict SEE cross sections.
+
+Validation hierarchy:
+
+1. Alpha particles
+
+2. Proton energy deposition
+
+3. Neutron detector response
+
+4. Proton SEE
+
+5. Neutron SEE
+
+---
+
+# 11. Coding Philosophy
+
+The Geant4 engine shall remain as simple as possible.
+
+Whenever possible:
+
+New features belong in analysis software.
+
+Not inside the simulation.
+
+---
+
+# 12. Version History
+
+## Version 1.0
+
+Architecture Freeze
+
+Established:
+
+* Frozen Geant4 engine
+* Frozen PANDA_Analyze.py
+* Creation of PANDAEX
+* Experimental validation philosophy
+* Results directory concept
+
+---
+
+# 13. Future Ideas
+
+These ideas are intentionally deferred.
+
+* Reaction-by-reaction decomposition
+
+* Automatic χ² validation
+
+* McNulty comparison module
+
+* Elevant comparison module
+
+* GUI validation tab
+
+* Automatic PDF report generation
+
+* Validation database
+
+These items shall not be implemented until PANDAEX Version 1.x.
+
+---
+
+# 14. Guiding Principle
+
+Whenever a new feature is proposed, ask:
+
+> **Does this change alter the physics engine or merely interpret its output?**
+
+If it alters the physics engine,
+
+it belongs in a future PANDA release.
+
+If it interprets the output,
+
+it belongs in PANDAEX.
+
+---
+
+# 15. Long-Term Vision
+
+PANDA is intended to become a validated, publication-quality Monte Carlo framework for studying charge deposition by energetic particles in semiconductor materials.
+
+The long-term objective is to reproduce classic detector-response experiments while providing a modern Geant4-based alternative to historical tools such as CUPID.
+
+Experimental validation is considered equally important as simulation capability.
+
+---
+
+**End of Document**

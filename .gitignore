@@ -1,0 +1,12 @@
+# Build artifacts
+build/
+PANDA
+
+# Large per-run simulation output (regenerate via PANDA_Analyze.py)
+Results/
+
+# Editor/OS cruft
+*.log
+
+# Local Claude Code settings (machine-specific, not project source)
+.claude/settings.local.json

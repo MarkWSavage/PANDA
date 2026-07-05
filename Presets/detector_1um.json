@@ -1,0 +1,11 @@
+{
+    "particle": "neutron",
+    "Energy (MeV)": "14.7",
+    "Sensitive XY (um)": "5000",
+    "Sensitive Thickness (um)": "2.5",
+    "Dead Thickness (um)": "1",
+    "Beam XY (um)": "10",
+    "Critical Charge (fC)": "150",
+    "Events": "1000000",
+    "visualization": false
+}
