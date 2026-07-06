@@ -27,10 +27,19 @@ public:
     G4double GetSensitiveThickness() const { return fSensitiveThickness; }
     G4double GetDeadThickness() const { return fDeadThickness; }
     G4double GetSensitiveXY() const { return fSensitiveXY; }
+    G4double GetDeadXY() const { return fDeadXY; }
     G4bool GetUseCollectionModel() const { return fUseCollectionModel; }
     G4double GetCarrierLifetime() const { return fCarrierLifetime; }
     G4double GetElectricField() const { return fElectricField; }
     G4double GetBiasCrossSectionFactor() const { return fBiasCrossSectionFactor; }
+
+    // Owns /sim/particle (moved here from PrimaryGeneratorAction): the
+    // biasing operator attached in ConstructSDandField() needs to know
+    // which particle to bias, and a G4UI command path can only be
+    // declared by one messenger, so this is the single source of truth
+    // -- PrimaryGeneratorAction reads it back via this getter.
+    const G4String& GetParticleName() const { return fParticleName; }
+
 private:
     G4LogicalVolume* fSensitiveLogical;
     G4LogicalVolume* fDeadLogical = nullptr;
@@ -38,18 +47,21 @@ private:
 
     G4double fStepSize = 0.018*um;
     G4double fSensitiveXY = 10*um;
+    G4double fDeadXY = 10*um;
     G4double fSensitiveThickness = 10*um;
     G4double fDeadThickness = 5*um;
+    G4String fParticleName = "proton";
 
     G4bool   fUseCollectionModel = true;
     G4double fCarrierLifetime    = 10.0 * ns;
     G4double fElectricField      = 1.0 * kilovolt/cm;
 
     // Multiplier applied to the hadronic inelastic cross section for
-    // protons in the sensitive + dead volumes (see SEEBiasingOperator).
-    // 1.0 = no bias (default); set via /sim/biasCrossSectionFactor.
-    // ALWAYS verify a factor=1.0 run reproduces the unbiased baseline
-    // before trusting results from a boosted factor.
+    // whichever particle fParticleName selects, in the sensitive + dead
+    // volumes (see SEEBiasingOperator). 1.0 = no bias (default); set
+    // via /sim/biasCrossSectionFactor. ALWAYS verify a factor=1.0 run
+    // reproduces the unbiased baseline before trusting results from a
+    // boosted factor.
     G4double fBiasCrossSectionFactor = 1.0;
 
 };

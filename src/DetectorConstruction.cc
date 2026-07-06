@@ -9,8 +9,10 @@
 #include "G4GenericMessenger.hh"
 #include "G4UserLimits.hh"
 #include "G4RunManager.hh"
-#include "G4Proton.hh"
+#include "G4ParticleTable.hh"
 #include "SEEBiasingOperator.hh"
+
+#include <algorithm>
 
 DetectorConstruction::DetectorConstruction()
 {
@@ -30,6 +32,26 @@ auto& xyCmd =
         "um",
         fSensitiveXY);
 xyCmd.SetStates(G4State_PreInit, G4State_Idle);
+
+auto& deadXYCmd =
+    fMessenger->DeclarePropertyWithUnit(
+        "deadXY",
+        "um",
+        fDeadXY,
+        "Lateral (X/Y) size of the dead layer. Independent of "
+        "sensitiveXY -- defaults to the same value (10 um) but does "
+        "NOT track it, so set both explicitly if they should match.");
+deadXYCmd.SetStates(G4State_PreInit, G4State_Idle);
+
+auto& particleCmd =
+    fMessenger->DeclareProperty(
+        "particle",
+        fParticleName,
+        "Primary particle name (e.g. proton, neutron, alpha, deuteron, "
+        "triton, He3, GenericIon). Also selects which species' hadronic "
+        "inelastic process the SEEBiasingOperator biases -- see "
+        "ConstructSDandField() and PANDA.cc.");
+particleCmd.SetStates(G4State_PreInit, G4State_Idle);
 
 auto& thickCmd =
     fMessenger->DeclarePropertyWithUnit(
@@ -82,11 +104,12 @@ auto& biasCmd =
     fMessenger->DeclareProperty(
         "biasCrossSectionFactor",
         fBiasCrossSectionFactor,
-        "Multiplier on the hadronic inelastic cross section for protons "
-        "in the sensitive+dead volumes. 1.0 = no bias (default). Set to "
-        "match CREME-MC's Hadronic Cross Section Multiplier for direct "
-        "comparability. ALWAYS verify a run with this left at 1.0 "
-        "reproduces the unbiased baseline before trusting a boosted run."
+        "Multiplier on the hadronic inelastic cross section for "
+        "whichever particle /sim/particle selects, in the sensitive+"
+        "dead volumes. 1.0 = no bias (default). Set to match CREME-MC's "
+        "Hadronic Cross Section Multiplier for direct comparability. "
+        "ALWAYS verify a run with this left at 1.0 reproduces the "
+        "unbiased baseline before trusting a boosted run."
     );
 biasCmd.SetStates(G4State_PreInit, G4State_Idle);
 
@@ -108,7 +131,8 @@ G4VPhysicalVolume* DetectorConstruction::Construct()
         nist->FindOrBuildMaterial("G4_Si");
 
     // Dynamically size world based on geometry
-    G4double worldXY = 20.0 * fSensitiveXY;
+    G4double worldXY =
+        20.0 * std::max(fSensitiveXY, fDeadXY);
 
     G4double totalThickness =
         fDeadThickness + fSensitiveThickness;
@@ -151,8 +175,8 @@ G4VPhysicalVolume* DetectorConstruction::Construct()
     auto solidDead =
         new G4Box(
             "DeadLayer",
-            fSensitiveXY/2,
-            fSensitiveXY/2,
+            fDeadXY/2,
+            fDeadXY/2,
             fDeadThickness/2
         );
 
@@ -244,9 +268,31 @@ void DetectorConstruction::ConstructSDandField()
     // having biasing installed at all. This is the required sanity
     // check before trusting any boosted-factor run -- see the
     // messenger command help text and SEEBiasingOperator.hh for why.
+    //
+    // The particle to bias is whatever /sim/particle selected (read
+    // via fParticleName, set before /run/initialize triggers this
+    // method). PANDA.cc must have wrapped that same particle's
+    // hadronic inelastic process via PhysicsBias() at physics-
+    // construction time -- if it hasn't (e.g. a particle name not in
+    // that list), SEEBiasingOperator::StartRun() prints an explicit
+    // WARNING and biasing is silently inert for this run.
+    G4ParticleDefinition* primaryDef =
+        G4ParticleTable::GetParticleTable()->FindParticle(fParticleName);
+
+    if (!primaryDef)
+    {
+        G4Exception(
+            "DetectorConstruction::ConstructSDandField()",
+            "InvalidParticle",
+            FatalException,
+            ("Unknown /sim/particle name: '" + fParticleName +
+             "' -- not found in G4ParticleTable.").c_str()
+        );
+    }
+
     auto* biasingOperator =
         new SEEBiasingOperator(
-            G4Proton::ProtonDefinition(),
+            primaryDef,
             fBiasCrossSectionFactor
         );
 

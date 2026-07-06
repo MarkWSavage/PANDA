@@ -30,23 +30,43 @@ int main(int argc, char** argv)
         //new QGSP_INCLXX_HP()
 
     // Wrap physics for biasing. Following the official Geant4 biasing
-    // examples (GB01/GB07) exactly: explicitly name the ONE process to
-    // wrap -- proton inelastic scattering -- rather than wrapping
-    // every physics process for the proton. This guarantees the
-    // ionization process (responsible for essentially all "normal",
-    // non-biased energy deposition) is never touched by the biasing
-    // framework at all.
+    // examples (GB01/GB07): explicitly name the ONE process to wrap per
+    // particle -- its hadronic inelastic process -- rather than
+    // wrapping every physics process. This guarantees the ionization
+    // process (responsible for essentially all "normal", non-biased
+    // energy deposition) is never touched by the biasing framework at
+    // all.
+    //
+    // This registration must happen here, BEFORE run.mac is executed
+    // (and therefore before /sim/particle is known), so every particle
+    // PANDA might be asked to simulate is wrapped up front. Wrapping a
+    // particle that never ends up as the primary is harmless -- its
+    // biasing operator (see DetectorConstruction::ConstructSDandField)
+    // simply never gets attached/exercised for it.
+    //
+    // Process names are NOT a consistent "<particle>Inelastic" pattern
+    // in Geant4 -- e.g. deuteron is "dInelastic" and triton is
+    // "tInelastic", not "deuteronInelastic"/"tritonInelastic". These
+    // were taken directly from this physics list's own startup dump
+    // ("Hadronic Processes for <particle>"); if QGSP_BIC_HP's process
+    // naming ever changes, or you add a species not listed here, check
+    // that dump before guessing a name.
     //
     // This does NOT bias anything by itself -- whether biasing
     // actually does anything, and by how much, is entirely controlled
     // by SEEBiasingOperator, created and attached to the relevant
     // logical volumes in DetectorConstruction::ConstructSDandField(),
-    // using the cross-section factor set via
-    // /sim/biasCrossSectionFactor in run.mac (default 1.0 = no bias).
+    // for whichever particle /sim/particle selected, using the cross-
+    // section factor set via /sim/biasCrossSectionFactor (default 1.0
+    // = no bias).
     auto* biasingPhysics = new G4GenericBiasingPhysics();
-    std::vector<G4String> protonProcessesToBias;
-    protonProcessesToBias.push_back("protonInelastic");
-    biasingPhysics->PhysicsBias("proton", protonProcessesToBias);
+    biasingPhysics->PhysicsBias("proton",     {"protonInelastic"});
+    biasingPhysics->PhysicsBias("neutron",    {"neutronInelastic"});
+    biasingPhysics->PhysicsBias("alpha",      {"alphaInelastic"});
+    biasingPhysics->PhysicsBias("deuteron",   {"dInelastic"});
+    biasingPhysics->PhysicsBias("triton",     {"tInelastic"});
+    biasingPhysics->PhysicsBias("He3",        {"He3Inelastic"});
+    biasingPhysics->PhysicsBias("GenericIon", {"ionInelastic"});
     physicsList->RegisterPhysics(biasingPhysics);
 
     runManager->SetUserInitialization(physicsList);

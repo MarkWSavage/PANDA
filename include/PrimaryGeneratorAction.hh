@@ -21,7 +21,6 @@ private:
     G4GenericMessenger* fMessenger;
 
     G4double fEnergy;
-    G4String fParticleName;
 
     G4double fBeamXY;
 };

@@ -16,15 +16,15 @@ PrimaryGeneratorAction::PrimaryGeneratorAction()
 
     // Defaults
     fEnergy = 50*MeV;
-    fParticleName = "proton";
     fBeamXY = 10*um;
 
     fMessenger =
         new G4GenericMessenger(this, "/sim/", "Simulation control");
 
     fMessenger->DeclarePropertyWithUnit("energy", "MeV", fEnergy);
-    fMessenger->DeclareProperty("particle", fParticleName);
     fMessenger->DeclarePropertyWithUnit("beamXY", "um", fBeamXY);
+    // /sim/particle is declared by DetectorConstruction, not here --
+    // see DetectorConstruction::GetParticleName() for why.
 
     // Beam direction toward +Z
     fParticleGun->SetParticleMomentumDirection(
@@ -40,8 +40,17 @@ PrimaryGeneratorAction::~PrimaryGeneratorAction()
 
 void PrimaryGeneratorAction::GeneratePrimaries(G4Event* anEvent)
 {
+    // Particle name lives on DetectorConstruction (see
+    // DetectorConstruction::GetParticleName() for why) since the
+    // biasing operator also needs it.
+    auto detector =
+        static_cast<const DetectorConstruction*>(
+            G4RunManager::GetRunManager()->GetUserDetectorConstruction()
+        );
+
     auto particle =
-        G4ParticleTable::GetParticleTable()->FindParticle(fParticleName);
+        G4ParticleTable::GetParticleTable()
+            ->FindParticle(detector->GetParticleName());
 
     fParticleGun->SetParticleDefinition(particle);
 
@@ -56,10 +65,6 @@ void PrimaryGeneratorAction::GeneratePrimaries(G4Event* anEvent)
 
     // Always start well upstream in vacuum
     // Prevent source from being inside silicon
-    auto detector =
-        static_cast<const DetectorConstruction*>(
-            G4RunManager::GetRunManager()->GetUserDetectorConstruction()
-        );
 
     G4double sourceZ =
         -(detector->GetSensitiveThickness()/2.0
