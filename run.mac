@@ -1,5 +1,5 @@
-/random/setSeeds 77711 77722
-/sim/particle triton
+/random/setSeeds 88811 88822
+/sim/particle He3
 /sim/sensitiveXY 10 um
 /sim/deadXY 10 um
 /sim/sensitiveThickness 8 um
