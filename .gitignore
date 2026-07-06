@@ -5,6 +5,9 @@ PANDA
 # Large per-run simulation output (regenerate via PANDA_Analyze.py)
 Results/
 
+# Generated via compare_creme_panda.py
+PANDA_vs_CREME.png
+
 # Editor/OS cruft
 *.log
 __pycache__/
