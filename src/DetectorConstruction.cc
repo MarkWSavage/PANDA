@@ -332,6 +332,7 @@ G4double DetectorConstruction::GetSensitivePairCreationEnergy() const
     // temperature bulk literature values -- treat as approximate,
     // same spirit as the "(tune these)" mobility/vsat comment below.
     if (fSensitiveMaterialName == "Si")   return 3.6*eV;
+    // Standard cited Ge value: 2.9 eV.
     if (fSensitiveMaterialName == "Ge")   return 2.9*eV;
     if (fSensitiveMaterialName == "GaAs") return 4.2*eV;
     // Direct 4H-SiC p-n diode measurement: 7.83 +/- 0.02 eV (more
@@ -357,6 +358,14 @@ G4double DetectorConstruction::GetSensitiveElectronMobility() const
     // Low-field electron mobility. Typical room-temperature bulk
     // literature values (tune these).
     if (fSensitiveMaterialName == "Si")   return 1350.0 * cm2/volt/second;
+    // Real Ge detectors are cooled to ~77 K (room-temp thermal leakage
+    // current is prohibitive), where mobility is far higher than this
+    // 300 K figure (~40,000-70,000 cm^2/V/s vs 3900). Kept at the
+    // room-temperature value for consistency with every other material
+    // here (none of which model temperature dependence) -- it doesn't
+    // change this simulation's result anyway, since mobility*field
+    // already vastly exceeds vsat at either value, so drift velocity
+    // is saturation-capped regardless.
     if (fSensitiveMaterialName == "Ge")   return 3900.0 * cm2/volt/second;
     if (fSensitiveMaterialName == "GaAs") return 8500.0 * cm2/volt/second;
     if (fSensitiveMaterialName == "SiC")  return 1000.0 * cm2/volt/second;
@@ -384,7 +393,9 @@ G4double DetectorConstruction::GetSensitiveSaturationVelocity() const
     // -- more realistic than reusing Si's 1.0e7, which was an
     // oversimplification from the first cut of this model.
     if (fSensitiveMaterialName == "Si")   return 1.0e7 * cm/second;
-    if (fSensitiveMaterialName == "Ge")   return 6.0e6 * cm/second;
+    // Cited 300 K electron saturation velocity: 0.7e7 cm/s (more
+    // precise than the older 6.0e6 figure this used to use).
+    if (fSensitiveMaterialName == "Ge")   return 7.0e6 * cm/second;
     if (fSensitiveMaterialName == "GaAs") return 2.0e7 * cm/second;
     if (fSensitiveMaterialName == "SiC")  return 2.0e7 * cm/second;
     // GaN, like GaAs, has a non-monotonic velocity-field curve
