@@ -1,6 +1,6 @@
 # PANDA
 
-**Current release: [v1.0.0](https://github.com/MarkWSavage/PANDA/releases/tag/v1.0.0) — Architecture Freeze.** Geant4 engine and `PANDA_Analyze.py` are frozen; see `Documentation/PANDA_MASTER_DESIGN` (Version History) for what that covers.
+**Current release: [v1.1.0](https://github.com/MarkWSavage/PANDA/releases/tag/v1.1.0) — Material Selection.** Sensitive volume and dead layer/electrode are now independently selectable materials (see "Materials" below), documented as a scoped exception to the [v1.0.0](https://github.com/MarkWSavage/PANDA/releases/tag/v1.0.0) Architecture Freeze; see `Documentation/PANDA_MASTER_DESIGN` (Section 5, Version History) for what's frozen and what's in scope.
 
 **PANDA** — *Protons And Neutron charge Deposition in mAterials* — is a Geant4 Monte Carlo simulation for calculating charge deposition from energetic particles (protons, neutrons, ions) in semiconductor structures, for Single Event Effect (SEE) analysis.
 
