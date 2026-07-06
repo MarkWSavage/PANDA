@@ -1,9 +1,11 @@
 /random/setSeeds 12345 67890
-/sim/particle alpha
-/sim/sensitiveXY 10 um
-/sim/deadXY 10 um
-/sim/sensitiveThickness 8 um
-/sim/deadThickness 5 um
+/sim/particle proton
+/sim/sensitiveXY 20 um
+/sim/deadXY 20 um
+/sim/sensitiveThickness 5 um
+/sim/deadThickness 1 um
+/sim/sensitiveMaterial GaAs
+/sim/deadMaterial Al2O3
 /sim/biasCrossSectionFactor 1041
 /sim/useCollectionModel true
 /sim/carrierLifetime 1.0 ns
@@ -11,8 +13,8 @@
 /run/initialize
 /run/reinitializeGeometry
 
-/sim/energy 200 MeV
-/sim/beamXY 10 um
+/sim/energy 50 MeV
+/sim/beamXY 20 um
 /sim/criticalCharge 150
 /sim/verbose false
 
