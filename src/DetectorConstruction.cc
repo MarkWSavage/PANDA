@@ -334,7 +334,9 @@ G4double DetectorConstruction::GetSensitivePairCreationEnergy() const
     if (fSensitiveMaterialName == "Si")   return 3.6*eV;
     if (fSensitiveMaterialName == "Ge")   return 2.9*eV;
     if (fSensitiveMaterialName == "GaAs") return 4.2*eV;
-    if (fSensitiveMaterialName == "SiC")  return 7.6*eV;
+    // Direct 4H-SiC p-n diode measurement: 7.83 +/- 0.02 eV (more
+    // precise than the older ~7.6 eV figure this used to use).
+    if (fSensitiveMaterialName == "SiC")  return 7.83*eV;
     // Direct GaN radiation-detector measurement: 10 +/- 0.5 eV
     // (more authoritative than the older ~8.9 eV figure this used to
     // use -- see commit history).
@@ -357,7 +359,7 @@ G4double DetectorConstruction::GetSensitiveElectronMobility() const
     if (fSensitiveMaterialName == "Si")   return 1350.0 * cm2/volt/second;
     if (fSensitiveMaterialName == "Ge")   return 3900.0 * cm2/volt/second;
     if (fSensitiveMaterialName == "GaAs") return 8500.0 * cm2/volt/second;
-    if (fSensitiveMaterialName == "SiC")  return  900.0 * cm2/volt/second;
+    if (fSensitiveMaterialName == "SiC")  return 1000.0 * cm2/volt/second;
     if (fSensitiveMaterialName == "GaN")  return 1300.0 * cm2/volt/second;
 
     G4Exception(
