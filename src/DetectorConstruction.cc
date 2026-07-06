@@ -370,9 +370,17 @@ G4double DetectorConstruction::GetSensitiveElectronMobility() const
 G4double DetectorConstruction::GetSensitiveSaturationVelocity() const
 {
     // Typical room-temperature bulk literature values (tune these).
+    // GaAs's electron velocity-field curve is non-monotonic (Gunn
+    // effect / negative differential mobility): it peaks around
+    // 2.0e7 cm/s near ~3-4 kV/cm, then droops before re-settling at
+    // high field. This simple mu*E-capped-at-vsat model can't
+    // reproduce that NDR dip, so 2.0e7 (the commonly tabulated
+    // "saturation velocity" figure, e.g. Sze & Ng) is used as the cap
+    // -- more realistic than reusing Si's 1.0e7, which was an
+    // oversimplification from the first cut of this model.
     if (fSensitiveMaterialName == "Si")   return 1.0e7 * cm/second;
     if (fSensitiveMaterialName == "Ge")   return 6.0e6 * cm/second;
-    if (fSensitiveMaterialName == "GaAs") return 1.0e7 * cm/second;
+    if (fSensitiveMaterialName == "GaAs") return 2.0e7 * cm/second;
     if (fSensitiveMaterialName == "SiC")  return 2.0e7 * cm/second;
     if (fSensitiveMaterialName == "GaN")  return 2.5e7 * cm/second;
 
