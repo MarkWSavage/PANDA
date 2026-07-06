@@ -335,7 +335,10 @@ G4double DetectorConstruction::GetSensitivePairCreationEnergy() const
     if (fSensitiveMaterialName == "Ge")   return 2.9*eV;
     if (fSensitiveMaterialName == "GaAs") return 4.2*eV;
     if (fSensitiveMaterialName == "SiC")  return 7.6*eV;
-    if (fSensitiveMaterialName == "GaN")  return 8.9*eV;
+    // Direct GaN radiation-detector measurement: 10 +/- 0.5 eV
+    // (more authoritative than the older ~8.9 eV figure this used to
+    // use -- see commit history).
+    if (fSensitiveMaterialName == "GaN")  return 10.0*eV;
 
     G4Exception(
         "DetectorConstruction::GetSensitivePairCreationEnergy()",
@@ -355,7 +358,7 @@ G4double DetectorConstruction::GetSensitiveElectronMobility() const
     if (fSensitiveMaterialName == "Ge")   return 3900.0 * cm2/volt/second;
     if (fSensitiveMaterialName == "GaAs") return 8500.0 * cm2/volt/second;
     if (fSensitiveMaterialName == "SiC")  return  900.0 * cm2/volt/second;
-    if (fSensitiveMaterialName == "GaN")  return 1200.0 * cm2/volt/second;
+    if (fSensitiveMaterialName == "GaN")  return 1300.0 * cm2/volt/second;
 
     G4Exception(
         "DetectorConstruction::GetSensitiveElectronMobility()",
@@ -382,7 +385,12 @@ G4double DetectorConstruction::GetSensitiveSaturationVelocity() const
     if (fSensitiveMaterialName == "Ge")   return 6.0e6 * cm/second;
     if (fSensitiveMaterialName == "GaAs") return 2.0e7 * cm/second;
     if (fSensitiveMaterialName == "SiC")  return 2.0e7 * cm/second;
-    if (fSensitiveMaterialName == "GaN")  return 2.5e7 * cm/second;
+    // GaN, like GaAs, has a non-monotonic velocity-field curve
+    // (Gunn effect): peaks around 2.6e7 cm/s near ~145 kV/cm for
+    // undoped GaN, then droops at higher field. Same modeling
+    // choice as GaAs: use the peak/commonly-tabulated figure as
+    // the cap, since this simple model can't reproduce the NDR dip.
+    if (fSensitiveMaterialName == "GaN")  return 2.6e7 * cm/second;
 
     G4Exception(
         "DetectorConstruction::GetSensitiveSaturationVelocity()",
