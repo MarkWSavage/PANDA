@@ -140,7 +140,9 @@ class PandaGUI(QWidget):
         control_group = QGroupBox("Controls")
         control_layout = QGridLayout()
 
-        control_layout.addWidget(QLabel("Plot Metric:"), 0, 0, 1, 2)
+        plot_metric_label = QLabel("Plot Metric:")
+        plot_metric_label.setFixedHeight(20)
+        control_layout.addWidget(plot_metric_label, 0, 0, 1, 2)
 
         self.metric_dropdown = QComboBox()
         self.metric_dropdown.addItems(["Collected", "Deposited"])
@@ -193,6 +195,13 @@ class PandaGUI(QWidget):
         self.style_button(self.open_results_button, "#f5f5f5", "#999999")
         self.open_results_button.clicked.connect(self.open_results_folder)
         control_layout.addWidget(self.open_results_button, 5, 0, 1, 2)
+
+        # Send all leftover vertical space (this group box is shorter
+        # than Simulation Parameters, which has more rows) into a
+        # dedicated stretch row instead of letting QGridLayout spread
+        # it evenly across every row above -- that's what was making
+        # the "Plot Metric" label's row look absurdly tall.
+        control_layout.setRowStretch(6, 1)
 
         control_group.setLayout(control_layout)
 
