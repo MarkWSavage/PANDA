@@ -33,8 +33,10 @@ make -j$(nproc)
 
 ## Run
 
+From the project root (not from inside `build/`):
+
 ```
-./PANDA run.mac
+./build/PANDA run.mac
 python3 PANDA_Analyze.py
 ```
 

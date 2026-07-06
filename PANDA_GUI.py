@@ -372,7 +372,11 @@ class PandaGUI(QWidget):
         self.write_run_mac()
         self.log("Running PANDA...")
 
-        panda_path = os.path.join(self.project_dir, "PANDA")
+        # build/PANDA, not a root-level copy: pointing directly at the
+        # binary CMake actually produces means a rebuild is immediately
+        # picked up, with no separate manual "cp build/PANDA ." step
+        # that can silently go stale (see commit history).
+        panda_path = os.path.join(self.build_dir, "PANDA")
 
         process = subprocess.Popen(
             [panda_path, "run.mac"],
