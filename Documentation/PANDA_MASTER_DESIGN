@@ -157,7 +157,12 @@ The following components are considered frozen.
 
 ## PANDA
 
-Frozen, scoped to the original unbiased baseline (`~/geant4/PANDA`).
+Frozen, scoped to the original unbiased baseline. That baseline was
+archived to `~/geant4/PANDA_legacy` on 2026-07-06, when this repo
+(formerly `PANDA_biasing`) was renamed to `PANDA` and promoted to the
+canonical project -- it now supersedes the archived baseline entirely
+(validated cross-section biasing, generalized beyond protons, and
+multithreading; see the exceptions below).
 
 No modifications shall be made to:
 
@@ -173,14 +178,14 @@ Exceptions:
 
 * Configurable maximum step size inside the sensitive volume.
 
-* **Cross-section biasing** (this repo, `PANDA_biasing`): a deliberately scoped, sanctioned exception to the freeze above, made to speed up sampling of the rare nuclear-recoil tail. In scope for this exception:
+* **Cross-section biasing** (this repo, `PANDA`, formerly `PANDA_biasing`): a deliberately scoped, sanctioned exception to the freeze above, made to speed up sampling of the rare nuclear-recoil tail. In scope for this exception:
   * Physics list: wrapping the hadronic inelastic process per biased species via `G4GenericBiasingPhysics` (`PANDA.cc`), and `SEEBiasingOperator`.
   * EventAction / SteppingAction: raw-charge/event-weight separation (`UpdateEventWeight`), required so a biased run's charge spectrum stays statistically correct -- see the bug-history comments in `EventAction.hh`/`SteppingAction.cc`.
   * DetectorConstruction: `/sim/particle` (moved here from PrimaryGeneratorAction) and `/sim/deadXY`, needed to generalize biasing beyond protons.
   * Output format: `events.csv` gained one column, `EventWeight`.
-  * Everything else -- geometry model, charge calculation (3.6 eV/pair), sensitive detector logic -- remains frozen exactly as in the unbiased baseline; only what's listed above is in scope for `PANDA_biasing` to touch. Any further change to PANDA beyond continuing this biasing work should be treated as a new, separately-justified exception, not an implicit reopening of the freeze.
+  * Everything else -- geometry model, charge calculation (3.6 eV/pair), sensitive detector logic -- remains frozen exactly as in the unbiased baseline; only what's listed above is in scope for this repo to touch. Any further change to PANDA beyond continuing this biasing work should be treated as a new, separately-justified exception, not an implicit reopening of the freeze.
 
-* **Multithreading** (this repo, `PANDA_biasing`, 2026-07-06): a second deliberately scoped exception, switching from `G4RunManagerType::SerialOnly` to `MT` (`PANDA.cc`) for real wall-clock speedup on large runs (e.g. a 10M-event proton/factor=1041 run: 1m25s at 12 threads vs ~2-3 min serial). In scope for this exception:
+* **Multithreading** (this repo, `PANDA`, 2026-07-06): a second deliberately scoped exception, switching from `G4RunManagerType::SerialOnly` to `MT` (`PANDA.cc`) for real wall-clock speedup on large runs (e.g. a 10M-event proton/factor=1041 run: 1m25s at 12 threads vs ~2-3 min serial). In scope for this exception:
   * EventAction: each worker thread now writes its own `events_t<N>.csv` (thread ID via `G4Threading::G4GetThreadId()`) instead of one shared `events.csv`, since concurrent threads truncating/writing the same file would corrupt it -- the only actual MT hazard found. A new static method, `EventAction::MergeThreadOutputs()` (called once from `PANDA.cc` after the run finishes), concatenates every thread's file into the one canonical `events.csv` PANDA_Analyze.py/PANDAEX_Analyze.py still expect, then deletes the per-thread files. `SEEBiasingOperator` and `DetectorConstruction` needed no changes -- both were already written for "once per worker thread" construction.
   * Macro command order: MT defers construction of PrimaryGeneratorAction/EventAction (and their `/sim/energy`, `/sim/beamXY`, `/sim/criticalCharge`, `/sim/verbose` commands) until `/run/initialize` actually runs, unlike serial mode where `SetUserInitialization` builds them immediately -- so every macro (`run.mac`, all of `Macros/*.mac`, `PANDA_GUI.py`'s `write_run_mac()`) had to move those four commands to after `/run/initialize` + `/run/reinitializeGeometry`, with DetectorConstruction's own commands (particle, sensitiveXY, deadXY, thicknesses, biasCrossSectionFactor, useCollectionModel, carrierLifetime, electricField) staying before it.
   * Verified: merged-`events.csv` integrity (correct row count, single header, no duplicate/missing EventIDs -- Geant4 assigns globally unique IDs across worker threads), and statistical consistency with the previously-validated serial-mode numbers (288,658 vs 289,282 confirmed interactions; P(Q>=150fC) 5.40e-6 vs 5.65e-6 -- both within expected variation, since MT uses different RNG stream splitting than serial and isn't expected to reproduce bit-for-bit).
