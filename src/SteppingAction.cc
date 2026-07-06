@@ -129,8 +129,10 @@ void SteppingAction::UserSteppingAction(const G4Step* step)
     // as the criterion for an upset in EventAction — it no longer
     // gates whether the collected charge gets computed at all.
 
-    // Generated charge (Coulombs)
-    double Qgen = (edep / (3.6*eV)) * CLHEP::eplus;
+    // Generated charge (Coulombs). Pair-creation energy depends on the
+    // sensitive volume's material -- see
+    // DetectorConstruction::GetSensitivePairCreationEnergy().
+    double Qgen = (edep / fDetector->GetSensitivePairCreationEnergy()) * CLHEP::eplus;
 
     // Get sensitive layer thickness from detector
     double d_sens = fDetector->GetSensitiveThickness();
@@ -153,13 +155,14 @@ void SteppingAction::UserSteppingAction(const G4Step* step)
     double E     = fDetector->GetElectricField();
 
     // Drift time: tau_d = d / (mu * E)
-    // Typical silicon values (tune these):
-    double mu = 1350.0 * cm2 / volt / second;               // electron mobility
+    // Mobility/saturation velocity depend on the sensitive volume's
+    // material -- see DetectorConstruction::GetSensitiveElectronMobility()
+    // / GetSensitiveSaturationVelocity().
+    double mu = fDetector->GetSensitiveElectronMobility();
 
     double v = mu * E;
 
-    // Silicon velocity saturation
-    double vsat = 1.0e7 * cm / second;
+    double vsat = fDetector->GetSensitiveSaturationVelocity();
 
     if (v > vsat)
         v = vsat;

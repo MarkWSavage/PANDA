@@ -6,6 +6,7 @@
 
 class G4LogicalVolume;
 class G4GenericMessenger;
+class G4Material;
 
 class DetectorConstruction : public G4VUserDetectorConstruction
 {
@@ -40,7 +41,27 @@ public:
     // -- PrimaryGeneratorAction reads it back via this getter.
     const G4String& GetParticleName() const { return fParticleName; }
 
+    const G4String& GetSensitiveMaterialName() const { return fSensitiveMaterialName; }
+    const G4String& GetDeadMaterialName() const { return fDeadMaterialName; }
+
+    // Material-dependent constants used by SteppingAction's MeV->charge
+    // conversion (pair-creation energy) and collection-efficiency drift
+    // model (mobility/saturation velocity). Keyed off whatever
+    // /sim/sensitiveMaterial selected -- see the .cc for values and
+    // sources. Only the sensitive volume's material matters here:
+    // SteppingAction only computes Qgen/Qeff for steps inside the
+    // sensitive volume (see its early-return on GetSensitiveLogical()).
+    G4double GetSensitivePairCreationEnergy() const;
+    G4double GetSensitiveElectronMobility() const;
+    G4double GetSensitiveSaturationVelocity() const;
+
 private:
+    // Resolves a material name (e.g. "Si", "GaAs", "SiO2") to a
+    // G4Material, either via Geant4's NIST database or, for compounds
+    // NIST doesn't carry (SiC, GaN), by building it from elements. Used
+    // by Construct() for both the sensitive and dead volumes -- either
+    // may be set to any name this recognizes.
+    G4Material* ResolveMaterial(const G4String& name);
     G4LogicalVolume* fSensitiveLogical;
     G4LogicalVolume* fDeadLogical = nullptr;
     G4GenericMessenger* fMessenger;
@@ -51,6 +72,11 @@ private:
     G4double fSensitiveThickness = 10*um;
     G4double fDeadThickness = 5*um;
     G4String fParticleName = "proton";
+
+    // Defaults preserve pre-existing behavior (both volumes were
+    // hardcoded to silicon) for any macro that doesn't set these.
+    G4String fSensitiveMaterialName = "Si";
+    G4String fDeadMaterialName = "Si";
 
     G4bool   fUseCollectionModel = true;
     G4double fCarrierLifetime    = 10.0 * ns;

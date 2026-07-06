@@ -80,10 +80,18 @@ void EventAction::BeginOfEventAction(const G4Event*)
 
 void EventAction::EndOfEventAction(const G4Event* event)
 {
+    auto detector =
+        static_cast<const DetectorConstruction*>(
+            G4RunManager::GetRunManager()
+                ->GetUserDetectorConstruction()
+        );
+
     // Charge equivalent of the RAW deposited energy (ideal case: every
     // e-h pair fully collected, no trapping/recombination loss).
+    // Pair-creation energy depends on the sensitive volume's material --
+    // see DetectorConstruction::GetSensitivePairCreationEnergy().
     G4double depositedCharge =
-        (fTotalEdep / (3.6 * eV)) * CLHEP::eplus;
+        (fTotalEdep / detector->GetSensitivePairCreationEnergy()) * CLHEP::eplus;
 
     G4double depositedCharge_fC =
         depositedCharge / (1.0e-15 * CLHEP::coulomb);
@@ -93,12 +101,6 @@ void EventAction::EndOfEventAction(const G4Event* event)
     // regardless of which one is used below for the upset criterion).
     G4double collectedCharge_fC =
         fCollectedCharge / (1.0e-15 * CLHEP::coulomb);
-
-    auto detector =
-        static_cast<const DetectorConstruction*>(
-            G4RunManager::GetRunManager()
-                ->GetUserDetectorConstruction()
-        );
 
     // Which of the two charges is used to decide whether this event
     // causes an upset is controlled by /sim/useCollectionModel.

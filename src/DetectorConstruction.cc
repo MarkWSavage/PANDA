@@ -5,6 +5,8 @@
 #include "G4LogicalVolume.hh"
 #include "G4PVPlacement.hh"
 #include "G4NistManager.hh"
+#include "G4Material.hh"
+#include "G4Element.hh"
 #include "G4SystemOfUnits.hh"
 #include "G4GenericMessenger.hh"
 #include "G4UserLimits.hh"
@@ -52,6 +54,25 @@ auto& particleCmd =
         "inelastic process the SEEBiasingOperator biases -- see "
         "ConstructSDandField() and PANDA.cc.");
 particleCmd.SetStates(G4State_PreInit, G4State_Idle);
+
+auto& sensMatCmd =
+    fMessenger->DeclareProperty(
+        "sensitiveMaterial",
+        fSensitiveMaterialName,
+        "Sensitive volume material: Si, Ge, GaAs, SiC, or GaN. Also "
+        "selects the pair-creation energy and mobility/saturation-"
+        "velocity constants SteppingAction uses for the MeV->charge "
+        "conversion -- see DetectorConstruction::GetSensitivePairCreation"
+        "Energy() and friends for values/sources.");
+sensMatCmd.SetStates(G4State_PreInit, G4State_Idle);
+
+auto& deadMatCmd =
+    fMessenger->DeclareProperty(
+        "deadMaterial",
+        fDeadMaterialName,
+        "Dead-layer/electrode material: Si, Ge, GaAs, SiC, GaN, SiO2, "
+        "Al2O3, or TiO2. Independent of sensitiveMaterial.");
+deadMatCmd.SetStates(G4State_PreInit, G4State_Idle);
 
 auto& thickCmd =
     fMessenger->DeclarePropertyWithUnit(
@@ -127,8 +148,8 @@ G4VPhysicalVolume* DetectorConstruction::Construct()
     auto vacuum =
         nist->FindOrBuildMaterial("G4_Galactic");
 
-    auto silicon =
-        nist->FindOrBuildMaterial("G4_Si");
+    auto sensitiveMaterial = ResolveMaterial(fSensitiveMaterialName);
+    auto deadMaterial      = ResolveMaterial(fDeadMaterialName);
 
     // Dynamically size world based on geometry
     G4double worldXY =
@@ -183,7 +204,7 @@ G4VPhysicalVolume* DetectorConstruction::Construct()
     auto logicDead =
         new G4LogicalVolume(
             solidDead,
-            silicon,
+            deadMaterial,
             "DeadLayer"
         );
 
@@ -220,7 +241,7 @@ G4VPhysicalVolume* DetectorConstruction::Construct()
     fSensitiveLogical =
         new G4LogicalVolume(
             solidSensitive,
-            silicon,
+            sensitiveMaterial,
             "SensitiveVolume"
         );
 
@@ -252,6 +273,117 @@ G4VPhysicalVolume* DetectorConstruction::Construct()
 G4LogicalVolume* DetectorConstruction::GetSensitiveLogical() const
 {
     return fSensitiveLogical;
+}
+
+G4Material* DetectorConstruction::ResolveMaterial(const G4String& name)
+{
+    auto nist = G4NistManager::Instance();
+
+    if (name == "Si")    return nist->FindOrBuildMaterial("G4_Si");
+    if (name == "Ge")    return nist->FindOrBuildMaterial("G4_Ge");
+    if (name == "GaAs")  return nist->FindOrBuildMaterial("G4_GALLIUM_ARSENIDE");
+    if (name == "SiO2")  return nist->FindOrBuildMaterial("G4_SILICON_DIOXIDE");
+    if (name == "Al2O3") return nist->FindOrBuildMaterial("G4_ALUMINUM_OXIDE");
+    if (name == "TiO2")  return nist->FindOrBuildMaterial("G4_TITANIUM_DIOXIDE");
+
+    // SiC and GaN aren't in Geant4's NIST compound database -- build
+    // them from elements. G4NistManager::FindOrBuildMaterial caches by
+    // name internally, but "SiC"/"GaN" aren't NIST names it recognizes,
+    // so we cache these ourselves to avoid rebuilding (and re-warning
+    // Geant4's material table about a duplicate name) on every call.
+    if (name == "SiC")
+    {
+        static G4Material* siliconCarbide = nullptr;
+        if (!siliconCarbide)
+        {
+            siliconCarbide = new G4Material("SiC", 3.21*g/cm3, 2);
+            siliconCarbide->AddElement(nist->FindOrBuildElement("Si"), 1);
+            siliconCarbide->AddElement(nist->FindOrBuildElement("C"), 1);
+        }
+        return siliconCarbide;
+    }
+
+    if (name == "GaN")
+    {
+        static G4Material* galliumNitride = nullptr;
+        if (!galliumNitride)
+        {
+            galliumNitride = new G4Material("GaN", 6.15*g/cm3, 2);
+            galliumNitride->AddElement(nist->FindOrBuildElement("Ga"), 1);
+            galliumNitride->AddElement(nist->FindOrBuildElement("N"), 1);
+        }
+        return galliumNitride;
+    }
+
+    G4Exception(
+        "DetectorConstruction::ResolveMaterial()",
+        "InvalidMaterial",
+        FatalException,
+        ("Unknown material name: '" + name +
+         "' -- expected one of Si, Ge, GaAs, SiC, GaN, SiO2, Al2O3, "
+         "TiO2.").c_str()
+    );
+    return nullptr;
+}
+
+G4double DetectorConstruction::GetSensitivePairCreationEnergy() const
+{
+    // Mean energy to create one electron-hole pair. Typical room-
+    // temperature bulk literature values -- treat as approximate,
+    // same spirit as the "(tune these)" mobility/vsat comment below.
+    if (fSensitiveMaterialName == "Si")   return 3.6*eV;
+    if (fSensitiveMaterialName == "Ge")   return 2.9*eV;
+    if (fSensitiveMaterialName == "GaAs") return 4.2*eV;
+    if (fSensitiveMaterialName == "SiC")  return 7.6*eV;
+    if (fSensitiveMaterialName == "GaN")  return 8.9*eV;
+
+    G4Exception(
+        "DetectorConstruction::GetSensitivePairCreationEnergy()",
+        "InvalidMaterial",
+        FatalException,
+        ("Unknown /sim/sensitiveMaterial name: '" + fSensitiveMaterialName +
+         "' -- expected one of Si, Ge, GaAs, SiC, GaN.").c_str()
+    );
+    return 3.6*eV;
+}
+
+G4double DetectorConstruction::GetSensitiveElectronMobility() const
+{
+    // Low-field electron mobility. Typical room-temperature bulk
+    // literature values (tune these).
+    if (fSensitiveMaterialName == "Si")   return 1350.0 * cm2/volt/second;
+    if (fSensitiveMaterialName == "Ge")   return 3900.0 * cm2/volt/second;
+    if (fSensitiveMaterialName == "GaAs") return 8500.0 * cm2/volt/second;
+    if (fSensitiveMaterialName == "SiC")  return  900.0 * cm2/volt/second;
+    if (fSensitiveMaterialName == "GaN")  return 1200.0 * cm2/volt/second;
+
+    G4Exception(
+        "DetectorConstruction::GetSensitiveElectronMobility()",
+        "InvalidMaterial",
+        FatalException,
+        ("Unknown /sim/sensitiveMaterial name: '" + fSensitiveMaterialName +
+         "' -- expected one of Si, Ge, GaAs, SiC, GaN.").c_str()
+    );
+    return 1350.0 * cm2/volt/second;
+}
+
+G4double DetectorConstruction::GetSensitiveSaturationVelocity() const
+{
+    // Typical room-temperature bulk literature values (tune these).
+    if (fSensitiveMaterialName == "Si")   return 1.0e7 * cm/second;
+    if (fSensitiveMaterialName == "Ge")   return 6.0e6 * cm/second;
+    if (fSensitiveMaterialName == "GaAs") return 1.0e7 * cm/second;
+    if (fSensitiveMaterialName == "SiC")  return 2.0e7 * cm/second;
+    if (fSensitiveMaterialName == "GaN")  return 2.5e7 * cm/second;
+
+    G4Exception(
+        "DetectorConstruction::GetSensitiveSaturationVelocity()",
+        "InvalidMaterial",
+        FatalException,
+        ("Unknown /sim/sensitiveMaterial name: '" + fSensitiveMaterialName +
+         "' -- expected one of Si, Ge, GaAs, SiC, GaN.").c_str()
+    );
+    return 1.0e7 * cm/second;
 }
 
 void DetectorConstruction::ConstructSDandField()

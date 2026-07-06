@@ -96,6 +96,36 @@ class PandaGUI(QWidget):
 
         param_layout.addWidget(self.particle_dropdown, 0, 1)
 
+        self.sensitive_material_dropdown = QComboBox()
+        self.sensitive_material_dropdown.addItems(["Si", "GaAs", "Ge", "SiC", "GaN"])
+        self.sensitive_material_dropdown.setToolTip(
+            "Sensitive volume material. Also selects the pair-creation\n"
+            "energy and mobility/saturation-velocity constants used to\n"
+            "convert deposited energy to charge -- see\n"
+            "DetectorConstruction::GetSensitivePairCreationEnergy() etc."
+        )
+        self.sensitive_material_dropdown.setFixedWidth(110)
+        self.sensitive_material_dropdown.setFixedHeight(34)
+
+        self.dead_material_dropdown = QComboBox()
+        self.dead_material_dropdown.addItems(["SiO2", "Al2O3", "TiO2", "Si"])
+        self.dead_material_dropdown.setToolTip(
+            "Dead-layer/electrode material. Independent of the sensitive\n"
+            "volume's material."
+        )
+        self.dead_material_dropdown.setFixedWidth(110)
+        self.dead_material_dropdown.setFixedHeight(34)
+
+        # Sensitive/Dead Thickness rows get a material dropdown appended
+        # after the input box (column 2), keeping every row's input box
+        # in the same column (1) so they all stay aligned. Every other
+        # row is unaffected -- QGridLayout tolerates rows using
+        # different column counts.
+        material_dropdown_for_label = {
+            "Sensitive Thickness (um)": self.sensitive_material_dropdown,
+            "Dead Thickness (um)": self.dead_material_dropdown,
+        }
+
         for i, (label, default) in enumerate(labels, start=1):
             param_layout.addWidget(QLabel(label + ":"), i, 0)
 
@@ -105,6 +135,10 @@ class PandaGUI(QWidget):
 
             self.fields[label] = field
             param_layout.addWidget(field, i, 1)
+
+            dropdown = material_dropdown_for_label.get(label)
+            if dropdown is not None:
+                param_layout.addWidget(dropdown, i, 2)
 
         self.vis_checkbox = QCheckBox("Enable Visualization")
         param_layout.addWidget(self.vis_checkbox, len(labels)+1, 0, 1, 2)
@@ -294,6 +328,8 @@ class PandaGUI(QWidget):
             f.write(f"/sim/deadXY {self.fields['Dead XY (um)'].text()} um\n")
             f.write(f"/sim/sensitiveThickness {self.fields['Sensitive Thickness (um)'].text()} um\n")
             f.write(f"/sim/deadThickness {self.fields['Dead Thickness (um)'].text()} um\n")
+            f.write(f"/sim/sensitiveMaterial {self.sensitive_material_dropdown.currentText()}\n")
+            f.write(f"/sim/deadMaterial {self.dead_material_dropdown.currentText()}\n")
             f.write(f"/sim/biasCrossSectionFactor {self.fields['Bias Cross Section Factor'].text()}\n")
 
             if self.collection_checkbox.isChecked():
@@ -378,6 +414,8 @@ class PandaGUI(QWidget):
         if filename:
             data = {
                 "particle": self.particle_dropdown.currentText(),
+                "sensitive_material": self.sensitive_material_dropdown.currentText(),
+                "dead_material": self.dead_material_dropdown.currentText(),
                 **{k: v.text() for k, v in self.fields.items()},
                 "visualization": self.vis_checkbox.isChecked(),
                 "collection_model": self.collection_checkbox.isChecked(),
@@ -403,6 +441,14 @@ class PandaGUI(QWidget):
 
             self.particle_dropdown.setCurrentText(
                 data.get("particle", "proton")
+            )
+
+            self.sensitive_material_dropdown.setCurrentText(
+                data.get("sensitive_material", "Si")
+            )
+
+            self.dead_material_dropdown.setCurrentText(
+                data.get("dead_material", "SiO2")
             )
 
             # Set link state first: toggling it may sync Dead/Beam XY
