@@ -7,6 +7,8 @@ Results/
 
 # Editor/OS cruft
 *.log
+__pycache__/
+*.pyc
 
 # Local Claude Code settings (machine-specific, not project source)
 .claude/settings.local.json

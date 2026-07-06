@@ -21,7 +21,7 @@ class PandaGUI(QWidget):
         self.setWindowTitle("🐼 PANDA SEE Simulator")
         self.setGeometry(100, 100, 1400, 1050)
 
-        self.project_dir = os.path.expanduser("~/geant4/PANDA")
+        self.project_dir = os.path.dirname(os.path.abspath(__file__))
         self.build_dir = os.path.join(self.project_dir, "build")
         self.results_dir = os.path.join(self.project_dir, "Results", "Current")
 
@@ -63,10 +63,12 @@ class PandaGUI(QWidget):
         labels = [
             ("Energy (MeV)", "200"),
             ("Sensitive XY (um)", "10"),
+            ("Dead XY (um)", "10"),
             ("Sensitive Thickness (um)", "8"),
             ("Dead Thickness (um)", "5"),
             ("Beam XY (um)", "10"),
             ("Critical Charge (fC)", "150"),
+            ("Bias Cross Section Factor", "1041"),
             ("Events", "1000000")
         ]
 
@@ -77,8 +79,18 @@ class PandaGUI(QWidget):
             "proton",
             "neutron",
             "alpha",
+            "deuteron",
+            "triton",
+            "He3",
             "e-"
         ])
+        self.particle_dropdown.setToolTip(
+            "Biasing (Bias Cross Section Factor below) is validated for "
+            "proton, neutron, alpha, deuteron, triton, and He3 -- see "
+            "PANDA.cc for the exact wrapped process per species. e- has "
+            "no biasing wired up (runs unbiased regardless of the factor "
+            "field)."
+        )
         self.particle_dropdown.setFixedWidth(220)
         self.particle_dropdown.setFixedHeight(34)
 
@@ -237,10 +249,12 @@ class PandaGUI(QWidget):
             f.write(f"/sim/particle {self.particle_dropdown.currentText()}\n")
             f.write(f"/sim/energy {self.fields['Energy (MeV)'].text()} MeV\n")
             f.write(f"/sim/sensitiveXY {self.fields['Sensitive XY (um)'].text()} um\n")
+            f.write(f"/sim/deadXY {self.fields['Dead XY (um)'].text()} um\n")
             f.write(f"/sim/sensitiveThickness {self.fields['Sensitive Thickness (um)'].text()} um\n")
             f.write(f"/sim/deadThickness {self.fields['Dead Thickness (um)'].text()} um\n")
             f.write(f"/sim/beamXY {self.fields['Beam XY (um)'].text()} um\n")
             f.write(f"/sim/criticalCharge {self.fields['Critical Charge (fC)'].text()}\n")
+            f.write(f"/sim/biasCrossSectionFactor {self.fields['Bias Cross Section Factor'].text()}\n")
 
             if self.collection_checkbox.isChecked():
                 f.write("/sim/useCollectionModel true\n")
