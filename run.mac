@@ -1,5 +1,5 @@
-/random/setSeeds 11111 22222
-/sim/particle neutron
+/random/setSeeds 66611 66622
+/sim/particle deuteron
 /sim/sensitiveXY 10 um
 /sim/deadXY 10 um
 /sim/sensitiveThickness 8 um
