@@ -281,14 +281,19 @@ class PandaGUI(QWidget):
 
         with open(run_mac_path, "w") as f:
             f.write("/random/setSeeds 12345 67890\n")
+
+            # DetectorConstruction owns these commands, and (unlike
+            # serial mode) Geant4 MT doesn't construct PrimaryGenerator
+            # Action/EventAction -- and therefore doesn't register
+            # their /sim/energy, /sim/beamXY, /sim/criticalCharge,
+            # /sim/verbose commands -- until /run/initialize actually
+            # runs. DetectorConstruction's own commands (this block)
+            # must come first since they affect geometry construction.
             f.write(f"/sim/particle {self.particle_dropdown.currentText()}\n")
-            f.write(f"/sim/energy {self.fields['Energy (MeV)'].text()} MeV\n")
             f.write(f"/sim/sensitiveXY {self.fields['Sensitive XY (um)'].text()} um\n")
             f.write(f"/sim/deadXY {self.fields['Dead XY (um)'].text()} um\n")
             f.write(f"/sim/sensitiveThickness {self.fields['Sensitive Thickness (um)'].text()} um\n")
             f.write(f"/sim/deadThickness {self.fields['Dead Thickness (um)'].text()} um\n")
-            f.write(f"/sim/beamXY {self.fields['Beam XY (um)'].text()} um\n")
-            f.write(f"/sim/criticalCharge {self.fields['Critical Charge (fC)'].text()}\n")
             f.write(f"/sim/biasCrossSectionFactor {self.fields['Bias Cross Section Factor'].text()}\n")
 
             if self.collection_checkbox.isChecked():
@@ -299,9 +304,15 @@ class PandaGUI(QWidget):
             f.write(f"/sim/carrierLifetime {self.default_carrier_lifetime}\n")
             f.write(f"/sim/electricField {self.default_electric_field}\n")
 
-            f.write("/sim/verbose false\n\n")
             f.write("/run/initialize\n")
             f.write("/run/reinitializeGeometry\n\n")
+
+            # PrimaryGeneratorAction/EventAction-owned commands: must
+            # come after /run/initialize in MT (see comment above).
+            f.write(f"/sim/energy {self.fields['Energy (MeV)'].text()} MeV\n")
+            f.write(f"/sim/beamXY {self.fields['Beam XY (um)'].text()} um\n")
+            f.write(f"/sim/criticalCharge {self.fields['Critical Charge (fC)'].text()}\n")
+            f.write("/sim/verbose false\n\n")
 
             if self.vis_checkbox.isChecked():
                 f.write("/vis/open OGLSX\n")

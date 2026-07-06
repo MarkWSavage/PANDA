@@ -64,6 +64,17 @@ public:
     void SetCriticalCharge(G4double qc);
     void SetVerbose(G4bool val);
 
+    // Geant4 MT creates one EventAction per worker thread, each with
+    // its own events.csv writer (see constructor) -- required, since
+    // multiple threads truncating/writing the same file concurrently
+    // would corrupt it. Call this exactly once, after the run
+    // finishes and all worker threads have been joined (e.g.
+    // alongside SEEBiasingOperator::PrintTotals() in PANDA.cc), to
+    // merge every thread's events_t<N>.csv into the one canonical
+    // events.csv PANDA_Analyze.py/PANDAEX_Analyze.py expect, then
+    // delete the per-thread files.
+    static void MergeThreadOutputs();
+
 private:
     std::vector<Hit> fHits;
 

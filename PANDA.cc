@@ -1,4 +1,5 @@
 #include "G4RunManagerFactory.hh"
+#include "G4Threading.hh"
 #include "G4UImanager.hh"
  #include "QGSP_BIC_HP.hh"
 //#include "QGSP_INCLXX_HP.hh"
@@ -7,19 +8,33 @@
 
 #include "DetectorConstruction.hh"
 #include "ActionInitialization.hh"
+#include "EventAction.hh"
 
 #include "G4UIExecutive.hh"
 #include "G4VisExecutive.hh"
 
+#include <algorithm>
 #include <vector>
 
 int main(int argc, char** argv)
 {
-    // Construct the default run manager
+    // Multithreaded run manager: each worker thread gets its own
+    // DetectorConstruction::ConstructSDandField() call (already
+    // written to expect this -- see its header comment) and its own
+    // EventAction with a per-thread events_t<N>.csv (see
+    // EventAction::MergeThreadOutputs(), called below once the run
+    // finishes, to merge them into the one canonical events.csv).
+    // Leave a couple of cores free for the OS/other work rather than
+    // claiming every hardware thread.
+    G4int nThreads = std::max(
+        1, G4Threading::G4GetNumberOfCores() - 2
+    );
+
     auto* runManager =
         G4RunManagerFactory::CreateRunManager(
-            G4RunManagerType::SerialOnly
+            G4RunManagerType::MT
         );
+    runManager->SetNumberOfThreads(nThreads);
 
     // Detector geometry
     auto* detector = new DetectorConstruction();
@@ -108,6 +123,13 @@ int main(int argc, char** argv)
     // Geant4 biasing example pattern) -- see SEEBiasingOperator.hh for
     // the full explanation. This call site is guaranteed to execute.
     SEEBiasingOperator::PrintTotals();
+
+    // Merge each worker thread's events_t<N>.csv into the one
+    // canonical events.csv PANDA_Analyze.py/PANDAEX_Analyze.py expect.
+    // Safe here: all worker threads have already been joined by this
+    // point (G4RunManager cleans them up before ApplyCommand returns),
+    // so every per-thread file is fully written and closed.
+    EventAction::MergeThreadOutputs();
 
     // Cleanup
     delete visManager;
