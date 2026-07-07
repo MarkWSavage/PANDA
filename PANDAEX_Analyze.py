@@ -11,6 +11,8 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "Results", "Current")
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
+RECOIL_HITS_CSV = os.path.join(RESULTS_DIR, "recoil_hits.csv")
+
 
 # ----------------------------
 # Load PANDA output
@@ -170,5 +172,106 @@ plt.savefig(outfile, dpi=300)
 
 print("\nSaved:")
 print(outfile)
+
+# ----------------------------
+# Per-hit recoil species/LET breakdown (recoil_hits.csv, opt-in --
+# see /sim/logRecoilHits). The Recoil curve above lumps every non-
+# proton/e- species into one bucket; this is the finer-grained view
+# that actually distinguishes recoil species and reports LET, which
+# events.csv's per-event aggregate can't (it only sums energy).
+# ----------------------------
+if not os.path.exists(RECOIL_HITS_CSV):
+    print("\nrecoil_hits.csv not found -- per-species/LET breakdown unavailable.")
+    print("Run with /sim/logRecoilHits true to enable it (see README")
+    print("'Per-hit recoil/LET export').")
+else:
+    print("\nLoading:", RECOIL_HITS_CSV)
+    hits = pd.read_csv(RECOIL_HITS_CSV)
+
+    # SteppingAction/EventAction's export filter excludes proton/e- (not
+    # true nuclear recoils) but not e+ -- a positron shows up from the
+    # same reactions (beta-plus decay/pair production) without being a
+    # nuclear recoil either. Filtered here rather than at the source so
+    # the raw CSV still has it available if ever wanted for something
+    # else; every view below (summary table, "All recoils" aggregate,
+    # per-species LET curves) should be genuine recoils only.
+    non_recoil_species = {"e+"}
+    hits = hits[~hits["Particle"].isin(non_recoil_species)]
+
+    hit_weight = hits["EventWeight"].values
+    let = hits["LET_MeV_cm2_mg"].values
+    species = hits["Particle"].values
+
+    print(f"Recoil hits: {len(hits)}")
+
+    # Per-species summary: hit count (raw and weighted), Z/A, and
+    # max/mean LET -- the mean is bias-corrected (weighted by
+    # EventWeight, matching every other statistic in this codebase);
+    # the max is NOT weighted, since it's asking "what LET was ever
+    # actually reached", not an expectation value.
+    def _species_row(g):
+        w = g["EventWeight"].values
+        l = g["LET_MeV_cm2_mg"].values
+        return pd.Series({
+            "Count": len(g),
+            "WeightedCount": w.sum(),
+            "Z": g["Z"].iloc[0],
+            "A": g["A"].iloc[0],
+            "MaxLET_MeV_cm2_mg": l.max(),
+            "MeanLET_MeV_cm2_mg": np.average(l, weights=w),
+        })
+
+    summary = (
+        hits.groupby("Particle")
+            .apply(_species_row, include_groups=False)
+            .sort_values("Count", ascending=False)
+    )
+
+    summary_path = os.path.join(RESULTS_DIR, "PANDAEX_recoil_species_summary.csv")
+    summary.to_csv(summary_path)
+
+    print("\nRecoil species summary (by hit count):")
+    print(summary.to_string())
+    print("\nSaved:", summary_path)
+
+    # Differential LET spectrum: overall + the top species by hit
+    # count (the rest would clutter the legend without adding much,
+    # since hit count falls off steeply after the first few species --
+    # see the summary CSV above for the complete per-species table).
+    TOP_N_SPECIES = 6
+    top_species = summary.head(TOP_N_SPECIES).index.tolist()
+
+    let_positive = let[let > 0]
+
+    let_bins = np.logspace(
+        np.log10(let_positive.min()),
+        np.log10(let_positive.max()),
+        100
+    )
+    let_centers = np.sqrt(let_bins[:-1] * let_bins[1:])
+
+    plt.figure(figsize=(10, 6))
+
+    hist_all_let, _ = np.histogram(let, bins=let_bins, weights=hit_weight)
+    plt.step(let_centers, hist_all_let, where="mid", label="All recoils", linewidth=2, color="black")
+
+    for sp in top_species:
+        mask = species == sp
+        h, _ = np.histogram(let[mask], bins=let_bins, weights=hit_weight[mask])
+        plt.step(let_centers, h, where="mid", label=sp)
+
+    plt.xlabel("LET (MeV cm$^2$/mg)")
+    plt.ylabel("Weighted Counts")
+    plt.title("PANDAEX Recoil LET Spectrum (sensitive volume)")
+    plt.xscale("log")
+    plt.yscale("log")
+    plt.legend()
+
+    let_outfile = os.path.join(RESULTS_DIR, "PANDAEX_LET_spectrum.png")
+    plt.savefig(let_outfile, dpi=300)
+
+    print("\nSaved:", let_outfile)
+
+print("\nDone.")
 
 plt.show()
