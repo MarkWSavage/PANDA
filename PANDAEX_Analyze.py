@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 
 
 # Resolved relative to this script's own location (not the caller's
@@ -280,6 +281,63 @@ else:
     plt.savefig(let_outfile, dpi=300)
 
     print("\nSaved:", let_outfile)
+
+    # Small-multiples breakdown: every recoil species gets its own panel.
+    # Overlaying all of them on one axes would mean cycling through 100+
+    # generated hues once past the top few -- that reads as noise, not
+    # signal, so each species gets its own subplot (identified by its
+    # title, not a color) instead of fighting for a spot in one legend.
+    all_species = summary.index.tolist()
+    n_species = len(all_species)
+    n_cols = 12
+    n_rows = int(np.ceil(n_species / n_cols))
+
+    SPECIES_LINE_COLOR = "#2a78d6"  # dataviz reference palette, categorical slot 1
+
+    fig, axes = plt.subplots(
+        n_rows, n_cols,
+        figsize=(n_cols * 1.6, n_rows * 1.3),
+        sharex=True,
+    )
+    axes_flat = axes.flatten()
+
+    for ax, sp in zip(axes_flat, all_species):
+        mask = species == sp
+        h, _ = np.histogram(let[mask], bins=let_bins, weights=hit_weight[mask])
+        ax.step(let_centers, h, where="mid", linewidth=1, color=SPECIES_LINE_COLOR)
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        ax.set_xlim(let_bins[0], let_bins[-1])
+        # Cap major ticks so sparse species (few nonzero bins spanning
+        # under a decade) don't pile up overlapping log-minor-tick labels.
+        ax.yaxis.set_major_locator(mticker.LogLocator(base=10.0, numticks=3))
+        ax.yaxis.set_minor_locator(mticker.NullLocator())
+        ax.set_title(sp, fontsize=7, pad=2)
+        ax.tick_params(labelsize=5)
+
+    # Small-multiples convention: only the outer row/column carry tick
+    # labels, so 108 panels don't each repeat the same axis text.
+    for ax in axes_flat[:n_species]:
+        ax.label_outer()
+
+    for ax in axes_flat[n_species:]:
+        ax.axis("off")
+
+    fig.suptitle(
+        "PANDAEX Recoil LET Spectrum -- all species (small multiples)",
+        fontsize=12
+    )
+    fig.supxlabel("LET (MeV cm$^2$/mg)", fontsize=9)
+    fig.supylabel("Weighted Counts", fontsize=9)
+    fig.tight_layout(rect=[0, 0, 1, 0.97])
+
+    small_multiples_outfile = os.path.join(
+        RESULTS_DIR, "PANDAEX_LET_spectrum_all_species.png"
+    )
+    fig.savefig(small_multiples_outfile, dpi=150)
+    plt.close(fig)
+
+    print("Saved:", small_multiples_outfile)
 
 print("\nDone.")
 
