@@ -212,14 +212,14 @@ else:
     # actually reached", not an expectation value.
     def _species_row(g):
         w = g["EventWeight"].values
-        l = g["LET_MeV_cm2_mg"].values
+        let = g["LET_MeV_cm2_mg"].values
         return pd.Series({
             "Count": len(g),
             "WeightedCount": w.sum(),
             "Z": g["Z"].iloc[0],
             "A": g["A"].iloc[0],
-            "MaxLET_MeV_cm2_mg": l.max(),
-            "MeanLET_MeV_cm2_mg": np.average(l, weights=w),
+            "MaxLET_MeV_cm2_mg": let.max(),
+            "MeanLET_MeV_cm2_mg": np.average(let, weights=w),
         })
 
     summary = (
