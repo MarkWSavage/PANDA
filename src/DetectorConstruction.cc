@@ -147,51 +147,6 @@ auto& surrThickCmd =
         "surroundingXY.");
 surrThickCmd.SetStates(G4State_PreInit, G4State_Idle);
 
-auto& lidMatCmd =
-    fMessenger->DeclareProperty(
-        "lidMaterial",
-        fLidMaterialName,
-        "Package-lid material: Si, Ge, GaAs, SiC, GaN, SiO2, Al2O3, "
-        "TiO2, Au, or Pb. Only used if lidThickness > 0. Default Au "
-        "(hermetic package lid) -- see lidThickness.");
-lidMatCmd.SetStates(G4State_PreInit, G4State_Idle);
-
-auto& lidXYCmd =
-    fMessenger->DeclarePropertyWithUnit(
-        "lidXY",
-        "um",
-        fLidXY,
-        "Lateral (X/Y) size of the package lid. A real lid spans the "
-        "whole package, not just the local bulk-material reaction "
-        "volume, so this is independent of surroundingXY -- set it wide "
-        "enough to cover the beam footprint plus margin. Only used if "
-        "lidThickness > 0.");
-lidXYCmd.SetStates(G4State_PreInit, G4State_Idle);
-
-auto& lidThickCmd =
-    fMessenger->DeclarePropertyWithUnit(
-        "lidThickness",
-        "um",
-        fLidThickness,
-        "Package-lid thickness. 0 (default) disables the lid entirely "
-        "-- no lid volume is constructed or placed. Set > 0 to model "
-        "proton-induced high-LET scatter off a package lid (e.g. gold) "
-        "reaching the die -- see Tom Turflinger et al.");
-lidThickCmd.SetStates(G4State_PreInit, G4State_Idle);
-
-auto& lidGapCmd =
-    fMessenger->DeclarePropertyWithUnit(
-        "lidGap",
-        "um",
-        fLidGap,
-        "Vacuum/air standoff between the lid and the dead+sensitive+"
-        "surrounding stack (the package cavity height). This gap is "
-        "what lets secondaries scattered in the lid spread out "
-        "angularly before a fraction reach the die -- a lid placed "
-        "directly against the stack (gap=0) does not reproduce that. "
-        "Only used if lidThickness > 0.");
-lidGapCmd.SetStates(G4State_PreInit, G4State_Idle);
-
 auto& biasCmd =
     fMessenger->DeclareProperty(
         "biasCrossSectionFactor",
@@ -255,27 +210,10 @@ G4VPhysicalVolume* DetectorConstruction::Construct()
     G4double surroundingThickness =
         std::max(fSurroundingThickness, 1.2 * totalThickness);
 
-    // Package-lid volume (see fLidThickness in the header). Disabled
-    // unless fLidThickness > 0. lidXY defaults to at least
-    // surroundingXY so a lid enabled without an explicit lidXY still
-    // covers the stack, rather than silently shrinking to 0.
-    G4bool lidEnabled = fLidThickness > 0;
-
-    G4double lidXY =
-        lidEnabled ? std::max(fLidXY, surroundingXY) : 0;
-
     // Thin vacuum margin around the surrounding volume (Geant4's
-    // outermost placed volume convention). World stays centered at the
-    // origin (matching SurroundingVolume's placement), so when a lid
-    // pushes the -Z extent out further than the surrounding volume's
-    // own +Z extent, the World box grows symmetrically -- the +Z side
-    // just ends up with some extra unused vacuum margin.
-    G4double worldXY = 1.2 * std::max(surroundingXY, lidXY);
-
-    G4double worldZ =
-        lidEnabled
-            ? 2.4 * (surroundingThickness/2 + fLidGap + fLidThickness)
-            : 1.2 * surroundingThickness;
+    // outermost placed volume convention).
+    G4double worldXY = 1.2 * surroundingXY;
+    G4double worldZ  = 1.2 * surroundingThickness;
 
     auto solidWorld =
         new G4Box(
@@ -339,50 +277,6 @@ G4VPhysicalVolume* DetectorConstruction::Construct()
         false,
         0
     );
-
-    // Package-lid volume -- see fLidThickness in the header. Placed
-    // upstream (-Z) of SurroundingVolume, separated by fLidGap, since
-    // the beam travels in +Z (PrimaryGeneratorAction.cc) and enters the
-    // dead layer/sensitive volume from -Z. Not a daughter of
-    // SurroundingVolume: it needs the vacuum gap between it and the
-    // stack, not to touch it like the dead layer does.
-    if (lidEnabled)
-    {
-        auto lidMaterial = ResolveMaterial(fLidMaterialName);
-
-        auto solidLid =
-            new G4Box(
-                "LidVolume",
-                lidXY/2,
-                lidXY/2,
-                fLidThickness/2
-            );
-
-        auto logicLid =
-            new G4LogicalVolume(
-                solidLid,
-                lidMaterial,
-                "LidVolume"
-            );
-
-        logicLid->SetVisAttributes(G4VisAttributes::GetInvisible());
-
-        fLidLogical = logicLid;
-
-        new G4PVPlacement(
-            nullptr,
-            G4ThreeVector(
-                0,
-                0,
-                -(surroundingThickness/2 + fLidGap + fLidThickness/2)
-            ),
-            logicLid,
-            "LidVolume",
-            logicWorld,
-            false,
-            0
-        );
-    }
 
     // Dead layer directly below sensitive volume
     auto solidDead =
@@ -477,8 +371,6 @@ G4Material* DetectorConstruction::ResolveMaterial(const G4String& name)
     if (name == "SiO2")  return nist->FindOrBuildMaterial("G4_SILICON_DIOXIDE");
     if (name == "Al2O3") return nist->FindOrBuildMaterial("G4_ALUMINUM_OXIDE");
     if (name == "TiO2")  return nist->FindOrBuildMaterial("G4_TITANIUM_DIOXIDE");
-    if (name == "Au")    return nist->FindOrBuildMaterial("G4_Au");
-    if (name == "Pb")    return nist->FindOrBuildMaterial("G4_Pb");
 
     // SiC and GaN aren't in Geant4's NIST compound database -- build
     // them from elements. G4NistManager::FindOrBuildMaterial caches by
@@ -515,7 +407,7 @@ G4Material* DetectorConstruction::ResolveMaterial(const G4String& name)
         FatalException,
         ("Unknown material name: '" + name +
          "' -- expected one of Si, Ge, GaAs, SiC, GaN, SiO2, Al2O3, "
-         "TiO2, Au, Pb.").c_str()
+         "TiO2.").c_str()
     );
     return nullptr;
 }
@@ -686,10 +578,4 @@ void DetectorConstruction::ConstructSDandField()
     // biasing existed, defeating the purpose of adding it.
     if (fSurroundingLogical)
         biasingOperator->AttachTo(fSurroundingLogical);
-
-    // Same reasoning applies to the lid (if enabled): proton-Au (or
-    // whatever lidMaterial) reactions there are the entire point of
-    // adding it, and are otherwise too rare to sample unbiased.
-    if (fLidLogical)
-        biasingOperator->AttachTo(fLidLogical);
 }

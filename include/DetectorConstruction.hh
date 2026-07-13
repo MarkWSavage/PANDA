@@ -29,13 +29,6 @@ public:
     G4double GetDeadThickness() const { return fDeadThickness; }
     G4double GetSensitiveXY() const { return fSensitiveXY; }
     G4double GetDeadXY() const { return fDeadXY; }
-
-    // Lid thickness/gap, needed by PrimaryGeneratorAction to start the
-    // primary upstream of the lid (not just upstream of dead+sensitive)
-    // when a lid is present -- see fLidThickness for why 0 means "no
-    // lid placed".
-    G4double GetLidThickness() const { return fLidThickness; }
-    G4double GetLidGap() const { return fLidGap; }
     G4bool GetUseCollectionModel() const { return fUseCollectionModel; }
     G4double GetCarrierLifetime() const { return fCarrierLifetime; }
     G4double GetElectricField() const { return fElectricField; }
@@ -72,7 +65,6 @@ private:
     G4LogicalVolume* fSensitiveLogical;
     G4LogicalVolume* fDeadLogical = nullptr;
     G4LogicalVolume* fSurroundingLogical = nullptr;
-    G4LogicalVolume* fLidLogical = nullptr;
     G4GenericMessenger* fMessenger;
 
     G4double fStepSize = 0.018*um;
@@ -98,25 +90,6 @@ private:
     // dead stack itself is larger (e.g. the 5000 um sensitiveXY preset).
     G4double fSurroundingXY = 100*um;
     G4double fSurroundingThickness = 100*um;
-
-    // Package-lid volume, e.g. a gold-plated hermetic package lid --
-    // protons scattering/reacting in it can produce very-high-LET
-    // secondaries that reach the die from a source the sensitive+dead+
-    // surrounding stack alone can't represent (see Tom Turflinger et
-    // al.'s work on proton-induced gold-lid scatter). Placed further
-    // upstream (-Z) than SurroundingVolume, separated by fLidGap (the
-    // package cavity's air/vacuum standoff) -- NOT touching the stack
-    // like the dead layer, since the standoff distance is what lets
-    // scattered secondaries spread out angularly before a fraction of
-    // them reach the die. fLidThickness = 0 (default) disables the lid
-    // entirely, preserving existing behavior for every macro that
-    // doesn't set it. fLidXY defaults independently of surroundingXY --
-    // a real lid spans the whole package, not just the local bulk-
-    // silicon reaction volume, so it needs its own (larger) footprint.
-    G4double fLidXY = 0;
-    G4double fLidThickness = 0;
-    G4double fLidGap = 0;
-    G4String fLidMaterialName = "Au";
 
     // Defaults preserve pre-existing behavior (both volumes were
     // hardcoded to silicon) for any macro that doesn't set these.
