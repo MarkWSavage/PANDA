@@ -72,11 +72,11 @@ auto& deadMatCmd =
         "deadMaterial",
         fDeadMaterialName,
         "Dead-layer/electrode material: Si, Ge, GaAs, SiC, GaN, SiO2, "
-        "Al2O3, TiO2, Au, or W. Independent of sensitiveMaterial. Au/W "
-        "are for modeling metallization/via-plug materials directly "
-        "against the sensitive volume (e.g. gold contact layers, "
-        "tungsten plugs -- tungsten plugs specifically have been "
-        "reported to undergo neutron-induced fission, a distinct "
+        "Al2O3, TiO2, Au, W, or Pb. Independent of sensitiveMaterial. "
+        "Au/W/Pb are for modeling metallization/via-plug materials "
+        "directly against the sensitive volume (e.g. gold contact "
+        "layers, tungsten plugs -- tungsten plugs specifically have "
+        "been reported to undergo neutron-induced fission, a distinct "
         "mechanism from proton-induced reactions in Si).");
 deadMatCmd.SetStates(G4State_PreInit, G4State_Idle);
 
@@ -378,6 +378,7 @@ G4Material* DetectorConstruction::ResolveMaterial(const G4String& name)
     if (name == "TiO2")  return nist->FindOrBuildMaterial("G4_TITANIUM_DIOXIDE");
     if (name == "Au")    return nist->FindOrBuildMaterial("G4_Au");
     if (name == "W")     return nist->FindOrBuildMaterial("G4_W");
+    if (name == "Pb")    return nist->FindOrBuildMaterial("G4_Pb");
 
     // SiC and GaN aren't in Geant4's NIST compound database -- build
     // them from elements. G4NistManager::FindOrBuildMaterial caches by
@@ -414,7 +415,7 @@ G4Material* DetectorConstruction::ResolveMaterial(const G4String& name)
         FatalException,
         ("Unknown material name: '" + name +
          "' -- expected one of Si, Ge, GaAs, SiC, GaN, SiO2, Al2O3, "
-         "TiO2, Au, W.").c_str()
+         "TiO2, Au, W, Pb.").c_str()
     );
     return nullptr;
 }
