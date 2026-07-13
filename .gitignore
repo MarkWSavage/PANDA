@@ -18,3 +18,6 @@ __pycache__/
 
 # Local Claude Code settings (machine-specific, not project source)
 .claude/settings.local.json
+
+# Local venv for pre-commit lint hook (ruff)
+.lint-venv/
