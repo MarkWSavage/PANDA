@@ -64,11 +64,16 @@ void PrimaryGeneratorAction::GeneratePrimaries(G4Event* anEvent)
         (G4UniformRand() - 0.5)*fBeamXY;
 
     // Always start well upstream in vacuum
-    // Prevent source from being inside silicon
+    // Prevent source from being inside silicon (or, if a lid is
+    // present, inside/behind the lid -- see DetectorConstruction's
+    // fLidThickness. GetLidThickness()/GetLidGap() are 0 when no lid
+    // is configured, so this collapses back to the original offset.)
 
     G4double sourceZ =
         -(detector->GetSensitiveThickness()/2.0
            + detector->GetDeadThickness()
+           + detector->GetLidGap()
+           + detector->GetLidThickness()
            + 1.0*um);
 
     fParticleGun->SetParticlePosition(
