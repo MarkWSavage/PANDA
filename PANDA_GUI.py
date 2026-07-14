@@ -108,10 +108,15 @@ class PandaGUI(QWidget):
         self.sensitive_material_dropdown.setFixedHeight(34)
 
         self.dead_material_dropdown = QComboBox()
-        self.dead_material_dropdown.addItems(["SiO2", "Al2O3", "TiO2", "Si"])
+        self.dead_material_dropdown.addItems(
+            ["SiO2", "Al2O3", "TiO2", "Si", "Au", "W", "Pb", "Ta"]
+        )
         self.dead_material_dropdown.setToolTip(
             "Dead-layer/electrode material. Independent of the sensitive\n"
-            "volume's material."
+            "volume's material. Au/W/Pb/Ta model metallization/via-plug\n"
+            "materials directly against the sensitive volume -- these can\n"
+            "produce neutron/proton-induced fission-fragment recoils with\n"
+            "LET well above silicon's ~14-15 MeV*cm2/mg ceiling."
         )
         self.dead_material_dropdown.setFixedWidth(110)
         self.dead_material_dropdown.setFixedHeight(34)
