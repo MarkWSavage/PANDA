@@ -1,0 +1,26 @@
+# Hitachi HM68512 proton benchmark -- geometry scan point XY2T1
+# (sensitiveXY=2 um, sensitiveThickness=1 um). See run_hitachi_15MeV.mac
+# for full source notes and Validation/compare_hitachi_panda.py for how the
+# geometry+Qcrit scan is analyzed. deadThickness fixed at 5 um SiO2 across
+# the whole scan (not itself scanned -- remaining open assumption).
+/random/setSeeds 21015 1521
+/sim/particle proton
+/sim/sensitiveXY 2 um
+/sim/deadXY 2 um
+/sim/sensitiveThickness 1 um
+/sim/deadThickness 5 um
+/sim/sensitiveMaterial Si
+/sim/deadMaterial SiO2
+/sim/biasCrossSectionFactor 1041
+/sim/secondaryNeutronBiasFactor 1041
+/sim/useCollectionModel true
+/sim/carrierLifetime 1.0 ns
+/sim/electricField 1000000 volt/m
+/run/initialize
+/run/reinitializeGeometry
+
+/sim/energy 15 MeV
+/sim/beamXY 2 um
+/sim/criticalCharge 150
+/sim/verbose false
+/run/beamOn 10000000

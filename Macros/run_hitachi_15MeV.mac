@@ -1,0 +1,43 @@
+# Hitachi HM68512 (4 Mbit SRAM, CMOS-on-EPI) proton benchmark.
+#
+# Source: LaBel, Moran, Hawkins, Cooley, Seidleck, Gates, Smith,
+# Stassinopoulos, Marshall, Dale (NASA GSFC), "Single Event Effect
+# Proton and Heavy Ion Test Results for Candidate Spacecraft
+# Electronics," NSREC-era report (~1994), openly available at
+# https://nepp.nasa.gov/docuploads/8742E655-056B-4568-9F06CCA49C54B502/nsrec94a.pdf
+# Device proton-tested 22-63 MeV at UC Davis; report states "little
+# energy dependence" over that range. Static cross section
+# 1e-6 cm^2/device, dynamic 2.2e-5 cm^2/device.
+#
+# The sensitive-volume geometry and critical charge are NOT published
+# in the source report (unlike the McNulty/CUPID comparison, where the
+# geometry is stated exactly) -- the 3x3x3 um Si node under a 5 um
+# SiO2 stack below is an estimate consistent with a ~1994 CMOS-on-EPI
+# SRAM process, not a measured value. See Validation/compare_hitachi_
+# panda.py for how this uncertainty is handled (Qcrit swept as a free
+# parameter; the real test is whether PANDA reproduces the reported
+# flatness across 22-63 MeV, not absolute magnitude).
+#
+# This file: 15 MeV, below the tested range, to see whether PANDA
+# predicts the flat behavior extends below 22 MeV or rolls off.
+/random/setSeeds 15001 51015
+/sim/particle proton
+/sim/sensitiveXY 3 um
+/sim/deadXY 3 um
+/sim/sensitiveThickness 3 um
+/sim/deadThickness 5 um
+/sim/sensitiveMaterial Si
+/sim/deadMaterial SiO2
+/sim/biasCrossSectionFactor 1041
+/sim/secondaryNeutronBiasFactor 1041
+/sim/useCollectionModel true
+/sim/carrierLifetime 1.0 ns
+/sim/electricField 1000000 volt/m
+/run/initialize
+/run/reinitializeGeometry
+
+/sim/energy 15 MeV
+/sim/beamXY 3 um
+/sim/criticalCharge 150
+/sim/verbose false
+/run/beamOn 10000000

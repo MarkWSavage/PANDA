@@ -89,8 +89,9 @@ mcnulty_cupid = np.vstack([mcnulty_shared, mcnulty_cupid_tail])
 # mirrors PANDA_Analyze.py exactly (weighted histogram, cumulative
 # from the top, sigma = beam_area * P(E >= threshold)).
 script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(script_dir)
 events_path = os.path.join(
-    script_dir, "Results", "McNulty_148MeV_validated", "events.csv"
+    project_root, "Results", "McNulty_148MeV_validated", "events.csv"
 )
 
 nParticles = 10_000_000
@@ -183,4 +184,3 @@ ax.legend()
 
 plt.tight_layout()
 plt.savefig(os.path.join(script_dir, "PANDA_vs_McNulty.png"), dpi=300)
-plt.show()

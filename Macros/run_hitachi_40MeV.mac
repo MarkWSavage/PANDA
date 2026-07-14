@@ -1,0 +1,23 @@
+# Hitachi HM68512 proton benchmark -- see run_hitachi_15MeV.mac for
+# full source/geometry notes. 40 MeV: inside the tested range.
+/random/setSeeds 40004 54040
+/sim/particle proton
+/sim/sensitiveXY 3 um
+/sim/deadXY 3 um
+/sim/sensitiveThickness 3 um
+/sim/deadThickness 5 um
+/sim/sensitiveMaterial Si
+/sim/deadMaterial SiO2
+/sim/biasCrossSectionFactor 1041
+/sim/secondaryNeutronBiasFactor 1041
+/sim/useCollectionModel true
+/sim/carrierLifetime 1.0 ns
+/sim/electricField 1000000 volt/m
+/run/initialize
+/run/reinitializeGeometry
+
+/sim/energy 40 MeV
+/sim/beamXY 3 um
+/sim/criticalCharge 150
+/sim/verbose false
+/run/beamOn 10000000

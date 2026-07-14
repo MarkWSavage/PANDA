@@ -88,9 +88,13 @@ print(f"Converted CREME-MC x-axis: Energy (MeV) -> Charge (fC), factor = {MEV_TO
 # Resolved relative to this script's own location (not a hardcoded
 # path to a sibling project) so this always reads whichever repo it
 # actually lives in -- see PANDA_GUI.py's project_dir for the same fix.
+# This script lives in Validation/, one level below the project root
+# where Results/ actually is (PANDA_GUI.py lives at the project root
+# itself, so its own project_dir needs no such adjustment).
 script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(script_dir)
 panda_file = os.path.join(
-    script_dir, "Results", "Current", "cumulative_cross_section_collected.csv"
+    project_root, "Results", "Current", "cumulative_cross_section_collected.csv"
 )
 panda = pd.read_csv(panda_file)
 
@@ -236,4 +240,3 @@ axs[1].text(
 
 plt.tight_layout()
 plt.savefig(os.path.join(script_dir, "PANDA_vs_CREME.png"), dpi=300)
-plt.show()
