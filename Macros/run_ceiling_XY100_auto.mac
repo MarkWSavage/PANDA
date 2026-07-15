@@ -1,0 +1,36 @@
+# Surrounding-volume ceiling check -- XY axis, nominal size 100 um, auto-grown shell (control point)
+#
+# Tests the hypothesis (see DetectorConstruction.cc's auto-grow logic:
+# surroundingXY/Thickness = max(100 um, 1.2 x stack size)) that above
+# ~83 um in either axis, the auto-grown shell shrinks to a thin 1.2x-stack
+# margin, under-capturing nearby nuclear-reaction recoils the same way the
+# McNulty comparison showed even a generous 100 um/~8.5x shell already
+# under-predicted high-deposited-energy events. See Documentation/
+# PANDA_MASTER_DESIGN Known Limitations for that baseline discrepancy.
+#
+# Self-consistency method: same device geometry run with the auto-grown
+# shell vs. an explicitly widened (4x device size) reference shell. If
+# the two disagree, the auto-grown shell is truncating real physics.
+/random/setSeeds 80003 412
+/sim/particle proton
+/sim/sensitiveXY 100 um
+/sim/deadXY 100 um
+/sim/sensitiveThickness 5 um
+/sim/deadThickness 5 um
+/sim/sensitiveMaterial Si
+/sim/deadMaterial SiO2
+/sim/biasCrossSectionFactor 1041
+/sim/secondaryNeutronBiasFactor 1041
+/sim/useCollectionModel true
+/sim/carrierLifetime 1.0 ns
+/sim/electricField 1000000 volt/m
+
+
+/run/initialize
+/run/reinitializeGeometry
+
+/sim/energy 50 MeV
+/sim/beamXY 100 um
+/sim/criticalCharge 150
+/sim/verbose false
+/run/beamOn 10000000

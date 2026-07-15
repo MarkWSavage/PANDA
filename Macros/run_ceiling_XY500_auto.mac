@@ -1,0 +1,33 @@
+# Surrounding-volume ceiling check (larger-scale/higher-energy follow-up) -- XY axis, nominal size 500 um, 200 MeV, auto-grown shell
+#
+# Follow-up to the first ceiling sweep (Macros/run_ceiling_{XY,T}{50,100,200}
+# _{auto,wide}.mac, Validation/compare_shell_ceiling.py): that test found NO
+# confirmation of the hypothesized ~80 um surrounding-volume ceiling up to
+# 200 um at 50 MeV. This extends the same self-consistency method (auto-
+# grown shell vs. explicit 4x-device-size reference shell) to 500 um-1 mm
+# device sizes and a higher proton energy (200 MeV, matching the recoil-LET
+# investigation's reference energy), in case the effect only appears at
+# larger scale or where secondary-particle ranges are longer.
+/random/setSeeds 90001 152
+/sim/particle proton
+/sim/sensitiveXY 500 um
+/sim/deadXY 500 um
+/sim/sensitiveThickness 5 um
+/sim/deadThickness 5 um
+/sim/sensitiveMaterial Si
+/sim/deadMaterial SiO2
+/sim/biasCrossSectionFactor 1041
+/sim/secondaryNeutronBiasFactor 1041
+/sim/useCollectionModel true
+/sim/carrierLifetime 1.0 ns
+/sim/electricField 1000000 volt/m
+
+
+/run/initialize
+/run/reinitializeGeometry
+
+/sim/energy 200 MeV
+/sim/beamXY 500 um
+/sim/criticalCharge 150
+/sim/verbose false
+/run/beamOn 10000000
