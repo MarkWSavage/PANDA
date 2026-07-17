@@ -74,10 +74,33 @@ void SEEBiasingOperator::PrintTotals()
     G4cout << "    Confirmed real interactions : " << confirmed << G4endl;
     if (proposed > 0)
     {
-        G4cout << "    Confirmed/Proposed ratio    : "
-               << (G4double)confirmed / proposed
-               << " (expect ~= 1/crossSectionFactor = "
-               << 1.0 / factor << ")" << G4endl;
+        // NOTE: the ratio itself is NOT expected to equal 1/factor in
+        // general -- that would only hold if the TRUE (unbiased) per-
+        // proposal reaction probability were ~1, which is essentially
+        // never true (e.g. measured ~3.3e-5 for a 200 MeV proton
+        // through a typical Si/SiO2 stack -- see
+        // panda-biasing-ratio-scaling-investigation memory/session,
+        // 2026-07-17). What IS a meaningful, checkable invariant is
+        // ratio*factor: since Proposed depends only on geometry/
+        // stepping (not on factor) and Confirmed scales linearly with
+        // factor as long as biasing is behaving correctly (no runaway
+        // multi-reaction-per-track compounding -- see the gold-lid
+        // investigation, where ratio itself approached ~0.74, i.e.
+        // nearly every proposal confirmed, a genuinely pathological
+        // signature), ratio*factor should stay roughly constant across
+        // different crossSectionFactor runs at the same geometry. If
+        // you have a factor=1.0 baseline run's ratio to compare
+        // against, THAT (not 1/factor) is the reference value.
+        G4double ratio = (G4double)confirmed / proposed;
+
+        G4cout << "    Confirmed/Proposed ratio    : " << ratio << G4endl;
+        G4cout << "    (ratio * factor)            : " << ratio * factor
+               << " -- compare this across different factors at the same"
+               << " geometry, NOT the ratio above against 1/factor (see"
+               << " comment in SEEBiasingOperator.cc); it should stay"
+               << " roughly constant unless something is wrong (e.g. a"
+               << " factor so aggressive it causes multiple biased"
+               << " reactions per track)." << G4endl;
     }
     else
     {
@@ -101,10 +124,17 @@ void SEEBiasingOperator::PrintTotals()
         G4cout << "    Confirmed real interactions : " << confirmedSec << G4endl;
         if (proposedSec > 0)
         {
-            G4cout << "    Confirmed/Proposed ratio    : "
-                   << (G4double)confirmedSec / proposedSec
-                   << " (expect ~= 1/crossSectionFactor = "
-                   << 1.0 / factorSec << ")" << G4endl;
+            // See the matching comment in the primary block above --
+            // the ratio itself is not expected to equal 1/factor;
+            // ratio*factor is the meaningful, comparable invariant.
+            G4double ratioSec = (G4double)confirmedSec / proposedSec;
+
+            G4cout << "    Confirmed/Proposed ratio    : " << ratioSec << G4endl;
+            G4cout << "    (ratio * factor)            : " << ratioSec * factorSec
+                   << " -- compare this across different factors at the"
+                   << " same geometry, NOT the ratio above against"
+                   << " 1/factor (see comment in SEEBiasingOperator.cc)."
+                   << G4endl;
         }
         else
         {
