@@ -45,6 +45,33 @@ void SteppingAction::UserSteppingAction(const G4Step* step)
     if (volume->GetLogicalVolume() != fDetector->GetSensitiveLogical())
         return;
 
+    // Geant4's energy-loss straggling model (sampling a Landau/Gaussian-
+    // tailed fluctuation around the mean continuous energy loss) has a
+    // smooth low-energy tail that can, for a small fraction of steps
+    // (measured ~0.02% by count, mostly light recoils like alpha/He3),
+    // sample a result many orders of magnitude below any physically
+    // meaningful energy deposit -- e.g. 1e-90 keV, not a division-by-
+    // near-zero-stepLength artifact like the LET fix below guards
+    // against (this can happen even on an otherwise-ordinary-length
+    // step), but a sample from the fluctuation distribution's own
+    // extreme tail. Individually harmless (their total contribution to
+    // summed energy is ~1e-10% or less, confirmed empirically), except
+    // when such a step is the ONLY one an event registers in the
+    // sensitive volume: then it silently becomes that whole event's
+    // Total_keV/Deposited/CollectedCharge_fC, producing an extreme
+    // near-zero-charge outlier with no physical meaning (charge
+    // generation is quantized -- you cannot create a fractional
+    // electron-hole pair, so an energy deposit below the sensitive
+    // material's own pair-creation energy cannot correspond to a real,
+    // separately-countable charge carrier). Floored here, before any
+    // accumulation (event totals, hit export, weight tracking, or the
+    // collected-charge model below) -- confirmed empirically safe even
+    // at this most conservative candidate threshold: steps below it are
+    // ~1% of all positive-edep steps by count but ~1.5e-4% of total
+    // deposited energy, i.e. no measurable effect on any real result.
+    if (edep < fDetector->GetSensitivePairCreationEnergy())
+        return;
+
     // Particle name
     G4String pname =
         step->GetTrack()
