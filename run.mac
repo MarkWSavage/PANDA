@@ -1,11 +1,11 @@
 /random/setSeeds 12345 67890
 /sim/particle proton
-/sim/sensitiveXY 100 um
-/sim/deadXY 100 um
-/sim/sensitiveThickness 8 um
-/sim/deadThickness 5 um
+/sim/sensitiveXY 1 um
+/sim/deadXY 1 um
+/sim/sensitiveThickness .1 um
+/sim/deadThickness .1 um
 /sim/sensitiveMaterial Si
-/sim/deadMaterial Au
+/sim/deadMaterial SiO2
 /sim/biasCrossSectionFactor 1041
 /sim/useCollectionModel true
 /sim/carrierLifetime 1.0 ns
@@ -14,7 +14,7 @@
 /run/reinitializeGeometry
 
 /sim/energy 200 MeV
-/sim/beamXY 100 um
+/sim/beamXY 1 um
 /sim/criticalCharge 150
 /sim/verbose false
 /sim/logRecoilHits true
