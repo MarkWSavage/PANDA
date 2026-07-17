@@ -66,6 +66,7 @@ class PandaGUI(QWidget):
             ("Dead XY (um)", "10"),
             ("Sensitive Thickness (um)", "8"),
             ("Dead Thickness (um)", "5"),
+            ("Incident Angle (deg)", "0"),
             ("Beam XY (um)", "10"),
             ("Critical Charge (fC)", "150"),
             ("Bias Cross Section Factor", "1041"),
@@ -131,12 +132,25 @@ class PandaGUI(QWidget):
             "Dead Thickness (um)": self.dead_material_dropdown,
         }
 
+        field_tooltips = {
+            "Incident Angle (deg)":
+                "Approximates a beam tilted off the sensitive volume's "
+                "normal by dividing the effective sensitive thickness by "
+                "cos(angle) -- the chord-length-elongation model used for "
+                "tilt-angle corrections in heavy-ion SEE testing. Valid "
+                "range [0, 90). Lateral (XY) footprint is NOT adjusted.",
+        }
+
         for i, (label, default) in enumerate(labels, start=1):
             param_layout.addWidget(QLabel(label + ":"), i, 0)
 
             field = QLineEdit(default)
             field.setFixedWidth(220)
             field.setFixedHeight(34)
+
+            tooltip = field_tooltips.get(label)
+            if tooltip is not None:
+                field.setToolTip(tooltip)
 
             self.fields[label] = field
             param_layout.addWidget(field, i, 1)
@@ -343,6 +357,7 @@ class PandaGUI(QWidget):
             f.write(f"/sim/deadXY {self.fields['Dead XY (um)'].text()} um\n")
             f.write(f"/sim/sensitiveThickness {self.fields['Sensitive Thickness (um)'].text()} um\n")
             f.write(f"/sim/deadThickness {self.fields['Dead Thickness (um)'].text()} um\n")
+            f.write(f"/sim/incidentAngle {self.fields['Incident Angle (deg)'].text()} deg\n")
             f.write(f"/sim/sensitiveMaterial {self.sensitive_material_dropdown.currentText()}\n")
             f.write(f"/sim/deadMaterial {self.dead_material_dropdown.currentText()}\n")
             f.write(f"/sim/biasCrossSectionFactor {self.fields['Bias Cross Section Factor'].text()}\n")
