@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QLineEdit,
     QPushButton, QTextEdit, QVBoxLayout, QHBoxLayout,
     QGridLayout, QFileDialog, QCheckBox,
-    QGroupBox, QComboBox, QDialog
+    QGroupBox, QComboBox, QDialog, QMessageBox
 )
 
 from PyQt5.QtGui import QPixmap
@@ -255,16 +255,26 @@ class PandaGUI(QWidget):
         control_layout.addWidget(self.load_button, 4, 1)
 
         self.open_results_button = QPushButton("▤ Open Results Folder")
-        self.style_button(self.open_results_button, "#f5f5f5", "#999999")
+        self.style_button(self.open_results_button, "#fff9c4", "#d9c400")
         self.open_results_button.clicked.connect(self.open_results_folder)
         control_layout.addWidget(self.open_results_button, 5, 0, 1, 2)
+
+        self.run_pandaex_button = QPushButton("▤ Run PANDAEX")
+        self.style_button(self.run_pandaex_button, "#d9ecff", "#5b9bd5")
+        self.run_pandaex_button.clicked.connect(self.run_pandaex)
+        control_layout.addWidget(self.run_pandaex_button, 6, 0, 1, 2)
+
+        self.exit_button = QPushButton("✕ Exit PANDA")
+        self.style_button(self.exit_button, "#ffd9d9", "#e35c5c")
+        self.exit_button.clicked.connect(self.close)
+        control_layout.addWidget(self.exit_button, 7, 0, 1, 2)
 
         # Send all leftover vertical space (this group box is shorter
         # than Simulation Parameters, which has more rows) into a
         # dedicated stretch row instead of letting QGridLayout spread
         # it evenly across every row above -- that's what was making
         # the "Plot Metric" label's row look absurdly tall.
-        control_layout.setRowStretch(6, 1)
+        control_layout.setRowStretch(8, 1)
 
         control_group.setLayout(control_layout)
 
@@ -421,6 +431,30 @@ class PandaGUI(QWidget):
         self.log(f"Wrote {run_mac_path}")
 
     def run_panda(self):
+        # Recoil-hit logging is opt-in and off by default (it adds real
+        # per-step file-write overhead most runs don't need -- see
+        # EventAction.hh), so leaving it unchecked is usually deliberate,
+        # not a mistake. Warn rather than block: PANDA itself and
+        # PANDA_Analyze.py's charge-spectrum analysis are unaffected
+        # either way, only PANDAEX's per-species/LET breakdown needs it.
+        if not self.log_recoil_hits_checkbox.isChecked():
+            reply = QMessageBox.warning(
+                self,
+                "Recoil-hit logging disabled",
+                "\"Log Recoil Hits\" is unchecked -- this run will not "
+                "produce recoil_hits.csv, so PANDAEX's per-species/LET "
+                "breakdown won't be available afterward (Run PANDA "
+                "itself and PANDA_Analyze.py's charge-spectrum analysis "
+                "are unaffected).\n\n"
+                "Run anyway?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes,
+            )
+
+            if reply != QMessageBox.Yes:
+                self.log("Run PANDA cancelled -- Log Recoil Hits is unchecked.")
+                return
+
         self.write_run_mac()
         self.log("Running PANDA...")
 
@@ -461,6 +495,66 @@ class PandaGUI(QWidget):
             self.log(line.strip())
 
         self.log("Analysis complete.")
+
+    def run_pandaex(self):
+        # Ground truth for "was the run that produced the current
+        # results logged with recoil hits" is the output file itself,
+        # not the Log Recoil Hits checkbox -- the checkbox reflects
+        # whatever the form is currently set to for the NEXT run, which
+        # can easily be out of sync with what actually produced the
+        # results sitting in Results/Current right now (checkbox
+        # toggled after the last run, a preset loaded without
+        # re-running, etc).
+        recoil_hits_path = os.path.join(self.results_dir, "recoil_hits.csv")
+
+        if not os.path.exists(recoil_hits_path):
+            reply = QMessageBox.warning(
+                self,
+                "No recoil-hit data found",
+                "Results/Current/recoil_hits.csv is missing -- the run "
+                "that produced the current results was likely run with "
+                "\"Log Recoil Hits\" unchecked (or hasn't been run yet).\n\n"
+                "PANDAEX_Analyze.py's per-species/LET breakdown needs "
+                "that file; without it, only the raw deposited-energy "
+                "component spectrum will be produced.\n\n"
+                "Run PANDAEX anyway?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+
+            if reply != QMessageBox.Yes:
+                self.log("Run PANDAEX cancelled -- no recoil_hits.csv found.")
+                return
+
+        self.log("Running PANDAEX_Analyze.py...")
+
+        # PANDAEX_Analyze.py ends with a blocking plt.show() (every plot
+        # is already saved to disk via savefig() before that call) --
+        # left in for standalone command-line use, where seeing the
+        # figures pop up is convenient. Run here with the non-interactive
+        # Agg backend instead, or that call blocks this subprocess (and
+        # therefore this synchronous stdout-reading loop, and therefore
+        # the whole GUI) until someone manually closes windows nobody
+        # asked for.
+        env = os.environ.copy()
+        env["MPLBACKEND"] = "Agg"
+
+        process = subprocess.Popen(
+            [
+                "python3",
+                os.path.join(self.project_dir, "PANDAEX_Analyze.py"),
+            ],
+            cwd=self.project_dir,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True
+        )
+
+        for line in process.stdout:
+            self.log(line.strip())
+
+        self.log("PANDAEX analysis complete.")
 
     def save_preset(self):
         filename, _ = QFileDialog.getSaveFileName(
