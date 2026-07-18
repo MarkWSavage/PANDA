@@ -7,6 +7,7 @@
 #include "globals.hh"
 #include "Hit.hh"
 
+#include <atomic>
 #include <vector>
 #include <fstream>
 
@@ -80,6 +81,17 @@ public:
     // Call alongside MergeThreadOutputs() in PANDA.cc.
     static void MergeRecoilHitsOutputs();
 
+    // Prints the weighted upset count/probability/cross-section
+    // accumulated across every worker thread (fsUpsetWeightSum/
+    // fsEventCount below), as an independent C++-side sanity check
+    // against PANDA_Analyze.py's P(Q>=Qc)/cross-section-at-threshold
+    // numbers -- those are computed post-hoc from events.csv, this is
+    // ground truth tallied live during the run. The two should agree
+    // closely; a large discrepancy would point at a bug in one of the
+    // two independent computations. Call once, after the run finishes
+    // (alongside SEEBiasingOperator::PrintTotals() in PANDA.cc).
+    static void PrintUpsetSummary();
+
 private:
     std::vector<Hit> fHits;
 
@@ -100,6 +112,14 @@ private:
     // which are fractional under cross-section biasing)
     G4double fUpsetCount = 0.0;
     G4double fCriticalCharge = 150.0 * 1.0e-15 * CLHEP::coulomb;
+
+    // Global (cross-thread) upset tally for PrintUpsetSummary() above --
+    // same static-atomic, shared-across-worker-threads pattern
+    // SEEBiasingOperator uses for its proposed/confirmed counters.
+    // fsEventCount counts every event (upset or not); fsUpsetWeightSum
+    // only accumulates the weight of events that crossed fCriticalCharge.
+    static std::atomic<G4double> fsUpsetWeightSum;
+    static std::atomic<G4long>   fsEventCount;
 
     // Output + controls
     G4GenericMessenger* fMessenger = nullptr;

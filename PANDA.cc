@@ -124,6 +124,14 @@ int main(int argc, char** argv)
     // the full explanation. This call site is guaranteed to execute.
     SEEBiasingOperator::PrintTotals();
 
+    // Ground-truth upset tally (weighted count/probability/cross-
+    // section at the configured /sim/criticalCharge), accumulated live
+    // via static atomics across every worker thread -- an independent
+    // C++-side sanity check against PANDA_Analyze.py's post-hoc
+    // P(Q>=Qc)/cross-section-at-threshold numbers. Same guaranteed-to-
+    // execute call site as PrintTotals() above, for the same reason.
+    EventAction::PrintUpsetSummary();
+
     // Merge each worker thread's events_t<N>.csv into the one
     // canonical events.csv PANDA_Analyze.py/PANDAEX_Analyze.py expect.
     // Safe here: all worker threads have already been joined by this

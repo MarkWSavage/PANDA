@@ -1,7 +1,9 @@
 #include "DetectorConstruction.hh"
 #include "G4RunManager.hh"
 #include "EventAction.hh"
+#include "PrimaryGeneratorAction.hh"
 #include <algorithm>
+#include <atomic>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -11,8 +13,28 @@
 #include "G4Threading.hh"
 #include "G4ios.hh"
 
+std::atomic<G4double> EventAction::fsUpsetWeightSum{0.0};
+std::atomic<G4long>   EventAction::fsEventCount{0};
+
 namespace {
     const char* kResultsDir = "Results/Current";
+
+    // std::atomic<double>::fetch_add/operator+= is C++20-only; this
+    // project builds against Geant4 11.4's minimum (C++17), so
+    // fsUpsetWeightSum is accumulated with a manual compare-exchange
+    // retry loop instead -- portable, and just as correct under
+    // concurrent worker-thread writes.
+    void AtomicAddDouble(std::atomic<G4double>& target, G4double delta)
+    {
+        G4double current = target.load(std::memory_order_relaxed);
+        while (!target.compare_exchange_weak(
+            current, current + delta,
+            std::memory_order_relaxed, std::memory_order_relaxed))
+        {
+            // current is refreshed with the latest value on failure by
+            // compare_exchange_weak itself; just retry.
+        }
+    }
 
     // Geant4 MT's master thread has G4GetThreadId() == -1; a plain
     // (non-MT) G4RunManager never spawns worker threads at all, so
@@ -129,8 +151,13 @@ void EventAction::EndOfEventAction(const G4Event* event)
             ? fCollectedCharge
             : depositedCharge;
 
+    ++fsEventCount;
+
     if (upsetCharge >= fCriticalCharge)
+    {
         fUpsetCount += fEventWeight;
+        AtomicAddDouble(fsUpsetWeightSum, fEventWeight);
+    }
 
     if (fCSV.is_open())
     {
@@ -437,4 +464,45 @@ void EventAction::MergeRecoilHitsOutputs()
     G4cout << "EventAction::MergeRecoilHitsOutputs() -- merged "
            << threadFiles.size() << " per-thread file(s) into "
            << (dir / "recoil_hits.csv").string() << G4endl;
+}
+
+void EventAction::PrintUpsetSummary()
+{
+    G4double weightedUpsets = fsUpsetWeightSum.load();
+    G4long   totalEvents    = fsEventCount.load();
+    G4double beamXY         = PrimaryGeneratorAction::GetBeamXY();
+
+    G4cout << G4endl;
+    G4cout << "=======================================================" << G4endl;
+    G4cout << "EventAction -- GLOBAL UPSET SUMMARY (all worker threads)" << G4endl;
+    G4cout << "(ground truth, tallied live during the run; compare against"
+           << G4endl;
+    G4cout << " PANDA_Analyze.py's P(Q>=Qc)/cross-section-at-threshold, which"
+           << G4endl;
+    G4cout << " are computed post-hoc from events.csv -- the two are "
+           << "independent" << G4endl;
+    G4cout << " computations and should agree closely)" << G4endl;
+    G4cout << "    Total events                : " << totalEvents << G4endl;
+    G4cout << "    Weighted upset count         : " << weightedUpsets << G4endl;
+
+    if (totalEvents > 0)
+    {
+        G4double probability = weightedUpsets / (G4double)totalEvents;
+        G4double beamXY_cm = beamXY / cm;
+        G4double beamArea_cm2 = beamXY_cm * beamXY_cm;
+        G4double crossSection_cm2 = beamArea_cm2 * probability;
+
+        G4cout << "    Upset probability P(Q>=Qc)  : " << probability << G4endl;
+        G4cout << "    Beam area                   : " << beamArea_cm2
+               << " cm^2" << G4endl;
+        G4cout << "    Cross section @ Qc          : " << crossSection_cm2
+               << " cm^2" << G4endl;
+    }
+    else
+    {
+        G4cout << "    WARNING: zero events processed -- nothing to report."
+               << G4endl;
+    }
+    G4cout << "=======================================================" << G4endl;
+    G4cout << G4endl;
 }

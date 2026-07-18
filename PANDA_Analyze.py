@@ -300,6 +300,17 @@ for key, meta in METRICS.items():
         p_at_qc = np.interp(criticalCharge, bin_centers, prob)
         print(f"  P(Q >= {criticalCharge} fC):", p_at_qc)
 
+        # Cross section at that same threshold -- sigma = beam_area *
+        # P(Q>=Qc). The full curve (sigma vs. every threshold) is
+        # already saved to cumulative_cross_section_{suffix}.{png,csv}
+        # below, but the single value at the run's actual criticalCharge
+        # was never singled out and printed -- this is that number, and
+        # it's what EventAction::PrintUpsetSummary() (C++ side, printed
+        # to the simulation log at end of run) is a live sanity check
+        # against.
+        sigma_at_qc = beam_area_cm2 * p_at_qc
+        print(f"  Cross section @ Q >= {criticalCharge} fC:", sigma_at_qc, "cm^2")
+
 print("\nSaved to:", RESULTS_DIR)
 for meta in METRICS.values():
     suffix = meta["suffix"]

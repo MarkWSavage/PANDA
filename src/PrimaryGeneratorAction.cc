@@ -10,6 +10,8 @@
 #include "G4GenericMessenger.hh"
 #include "Randomize.hh"
 
+std::atomic<G4double> PrimaryGeneratorAction::fsBeamXY{10*um};
+
 PrimaryGeneratorAction::PrimaryGeneratorAction()
 {
     fParticleGun = new G4ParticleGun(1);
@@ -22,7 +24,10 @@ PrimaryGeneratorAction::PrimaryGeneratorAction()
         new G4GenericMessenger(this, "/sim/", "Simulation control");
 
     fMessenger->DeclarePropertyWithUnit("energy", "MeV", fEnergy);
-    fMessenger->DeclarePropertyWithUnit("beamXY", "um", fBeamXY);
+    fMessenger->DeclareMethodWithUnit(
+        "beamXY", "um",
+        &PrimaryGeneratorAction::SetBeamXY,
+        "Beam spot size (square, uniform transverse profile)");
     // /sim/particle is declared by DetectorConstruction, not here --
     // see DetectorConstruction::GetParticleName() for why.
 
@@ -36,6 +41,17 @@ PrimaryGeneratorAction::~PrimaryGeneratorAction()
 {
     delete fParticleGun;
     delete fMessenger;
+}
+
+void PrimaryGeneratorAction::SetBeamXY(G4double val)
+{
+    fBeamXY = val;
+    fsBeamXY.store(val);
+}
+
+G4double PrimaryGeneratorAction::GetBeamXY()
+{
+    return fsBeamXY.load();
 }
 
 void PrimaryGeneratorAction::GeneratePrimaries(G4Event* anEvent)
