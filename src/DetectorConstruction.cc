@@ -247,6 +247,54 @@ G4VPhysicalVolume* DetectorConstruction::Construct()
     fEffectiveDeadThickness =
         fDeadThickness / std::cos(fIncidentAngle);
 
+    // The chord-length-elongation model only stretches thickness, never
+    // the lateral (XY) footprint -- see fIncidentAngle in the header.
+    // At extreme angles this can make the sensitive volume's elongated
+    // thickness far exceed its own (un-widened) XY footprint, turning
+    // it into an artificially tall, narrow column. Real multiple-
+    // Coulomb/nuclear scattering accumulated over the whole dead+
+    // sensitive path can then push a primary out the side of that
+    // column before it finishes traversing the sensitive volume, so it
+    // never deposits the chord-length-elongated energy the model
+    // intends there -- biasing deposited-energy results low. Confirmed
+    // empirically (2026-07-19, 1um sensitive/10um dead/10um XY stack):
+    // fraction of events with zero sensitive-volume deposit stayed
+    // under 1% through 45 deg, jumped to 5.7% at 89 deg (sensitive
+    // elongation ~57x = 5.7x its own 10um XY), and 91% at 89.9 deg
+    // (~573x). Checked against the DEAD layer's own ratio too -- it
+    // does NOT correlate as cleanly (e.g. 80 deg already exceeds 5x the
+    // dead layer's XY but showed no elevated zero-fraction at all,
+    // 0.26%, actually below the 0-deg baseline) -- what apparently
+    // matters is staying in-bounds specifically during the SCORED
+    // (sensitive-volume) traversal, not the dead layer's own individual
+    // ratio, so only the sensitive volume is checked here. Not
+    // something this model fixes (would require also widening the
+    // lateral footprint at high angle, a separate, larger lift) -- a
+    // real device at a grazing angle extreme enough to trigger this
+    // would have to traverse neighboring sensitive volumes, isolation
+    // oxide, and packaging first anyway, so it isn't a physically
+    // realizable single-junction test condition. Just a heads-up: a
+    // simple, empirically-calibrated aspect-ratio heuristic (elongated
+    // sensitive thickness > 5x its own lateral footprint), not a
+    // precise scattering-length calculation.
+    if (fEffectiveSensitiveThickness > 5.0 * fSensitiveXY)
+    {
+        G4Exception(
+            "DetectorConstruction::Construct()",
+            "IncidentAngleLateralEscape",
+            JustWarning,
+            "incidentAngle has elongated the sensitive volume's "
+            "thickness to more than 5x its own lateral (XY) footprint. "
+            "Real multiple-Coulomb/nuclear scattering over that "
+            "artificially long, narrow path can push primaries out the "
+            "(un-widened) side before they finish traversing the "
+            "sensitive volume, biasing deposited-energy results low -- "
+            "see Documentation/PANDA_MASTER_DESIGN's incident-angle "
+            "section. Treat results at this angle with caution, or "
+            "reduce incidentAngle / widen sensitiveXY."
+        );
+    }
+
     // Surrounding volume matches the sensitive volume's material (bulk
     // substrate the junction is fabricated in). Grow it automatically
     // if the dead/sensitive stack itself is larger than the requested
