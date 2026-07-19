@@ -1,6 +1,6 @@
 # PANDA
 
-**Current release: [v1.5.0](https://github.com/MarkWSavage/PANDA/releases/tag/v1.5.0) — Validation Complete.** Hitachi HM68512 proton-SEU cross-validation (agreement within ~2x against real 1994 accelerator data), a corrected CREME-MC comparison (see "Known limitations" below), heavy-metal (Au/W/Pb/Ta) dead-layer materials with fission-fragment recoil investigation, region-scoped production cuts for deep-submicron charge-sharing fidelity, angle-of-incidence support, and a full `Documentation/PANDA_VALIDATION_SUMMARY.md` write-up. See `Documentation/PANDA_MASTER_DESIGN` (Section 5, Version History) for what's frozen and what's in scope.
+**Current release: [v1.6.0](https://github.com/MarkWSavage/PANDA/releases/tag/v1.6.0) — Incident-Angle Fidelity & Validation Closure.** The incident-angle model now elongates the dead layer, not just the sensitive volume, and warns when an extreme angle pushes results into an unreliable regime; two real vis-pane rendering bugs (thickness-scale distortion, thickness:ratio distortion) are fixed; and the McNulty/CUPID comparison is reframed from an open residual gap to an accepted validation, after testing and ruling out two candidate causes. See `Documentation/PANDA_MASTER_DESIGN` (Section 5, Version History) for what's frozen and what's in scope.
 
 **PANDA** — *Protons And Neutron charge Deposition in mAterials* — is a Geant4 Monte Carlo simulation for calculating charge deposition from energetic particles (protons, neutrons, ions) in semiconductor structures, for Single Event Effect (SEE) analysis.
 
