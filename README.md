@@ -1,6 +1,6 @@
 # PANDA
 
-**Current release: [v1.6.0](https://github.com/MarkWSavage/PANDA/releases/tag/v1.6.0) — Incident-Angle Fidelity & Validation Closure.** The incident-angle model now elongates the dead layer, not just the sensitive volume, and warns when an extreme angle pushes results into an unreliable regime; two real vis-pane rendering bugs (thickness-scale distortion, thickness:ratio distortion) are fixed; and the McNulty/CUPID comparison is reframed from an open residual gap to an accepted validation, after testing and ruling out two candidate causes. See `Documentation/PANDA_MASTER_DESIGN` (Section 5, Version History) for what's frozen and what's in scope.
+**Current release: [v1.7.0](https://github.com/MarkWSavage/PANDA/releases/tag/v1.7.0) — Heavy-Ion Primaries.** Six heavy-ion primaries (C12, F19, Cl35, Ni58, I127, Au197) are now selectable alongside the existing proton/neutron/alpha/deuteron/triton/He3 species, with cross-section biasing validated for all of them, extending PANDA into the direct-ionization-dominated regime of SEE testing. See `Documentation/PANDA_MASTER_DESIGN` (Section 5, Version History) for what's frozen and what's in scope.
 
 **PANDA** — *Protons And Neutron charge Deposition in mAterials* — is a Geant4 Monte Carlo simulation for calculating charge deposition from energetic particles (protons, neutrons, ions) in semiconductor structures, for Single Event Effect (SEE) analysis.
 
