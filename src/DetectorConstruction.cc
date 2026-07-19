@@ -239,6 +239,14 @@ G4VPhysicalVolume* DetectorConstruction::Construct()
     fEffectiveSensitiveThickness =
         fSensitiveThickness / std::cos(fIncidentAngle);
 
+    // Same elongation applied to the dead layer -- see
+    // fEffectiveDeadThickness in the header for why this is needed too
+    // (a tilted beam traverses more physical dead-layer material before
+    // reaching the sensitive volume, not just more sensitive-volume
+    // material).
+    fEffectiveDeadThickness =
+        fDeadThickness / std::cos(fIncidentAngle);
+
     // Surrounding volume matches the sensitive volume's material (bulk
     // substrate the junction is fabricated in). Grow it automatically
     // if the dead/sensitive stack itself is larger than the requested
@@ -247,7 +255,7 @@ G4VPhysicalVolume* DetectorConstruction::Construct()
     // box, which Geant4 would reject as an invalid mother/daughter
     // overlap.
     G4double totalThickness =
-        fDeadThickness + fEffectiveSensitiveThickness;
+        fEffectiveDeadThickness + fEffectiveSensitiveThickness;
 
     G4double surroundingXY =
         std::max(fSurroundingXY, 1.2 * std::max(fSensitiveXY, fDeadXY));
@@ -329,7 +337,7 @@ G4VPhysicalVolume* DetectorConstruction::Construct()
             "DeadLayer",
             fDeadXY/2,
             fDeadXY/2,
-            fDeadThickness/2
+            fEffectiveDeadThickness/2
         );
 
     auto logicDead =
@@ -350,7 +358,7 @@ G4VPhysicalVolume* DetectorConstruction::Construct()
         G4ThreeVector(
             0,
             0,
-            -(fEffectiveSensitiveThickness/2 + fDeadThickness/2)
+            -(fEffectiveSensitiveThickness/2 + fEffectiveDeadThickness/2)
         ),
         logicDead,
         "DeadLayer",
@@ -428,7 +436,7 @@ G4VPhysicalVolume* DetectorConstruction::Construct()
     // it only ever sharpens the resolution as the device shrinks.
     G4double smallestDim =
         std::min(
-            {fSensitiveXY, fEffectiveSensitiveThickness, fDeadXY, fDeadThickness}
+            {fSensitiveXY, fEffectiveSensitiveThickness, fDeadXY, fEffectiveDeadThickness}
         );
 
     G4double cutLength = smallestDim / 10.0;

@@ -33,7 +33,10 @@ public:
     // through this getter, so both stay consistent with the tilted
     // geometry automatically.
     G4double GetSensitiveThickness() const { return fEffectiveSensitiveThickness; }
-    G4double GetDeadThickness() const { return fDeadThickness; }
+
+    // Same chord-length elongation as GetSensitiveThickness(), applied
+    // to the dead layer -- see fEffectiveDeadThickness.
+    G4double GetDeadThickness() const { return fEffectiveDeadThickness; }
     G4double GetSensitiveXY() const { return fSensitiveXY; }
     G4double GetDeadXY() const { return fDeadXY; }
     G4bool GetUseCollectionModel() const { return fUseCollectionModel; }
@@ -85,15 +88,24 @@ private:
     // via /sim/incidentAngle (default 0 = normal incidence, preserving
     // existing behavior for every macro that doesn't set it). Rather
     // than actually rotating the beam or geometry -- which would also
-    // need to reshape the dead layer, surrounding volume, and
-    // secondary-neutron-biasing region to stay consistent, a much
-    // larger lift -- this approximates the tilt by lengthening the
-    // sensitive volume's effective thickness by 1/cos(theta): the same
-    // chord-length-elongation model used for tilt-angle corrections in
-    // heavy-ion SEE testing (LET_eff = LET(0 deg)/cos(theta)). Only
-    // valid for beam-footprint-covers-device test conditions (see
-    // Documentation/PANDA_MASTER_DESIGN) -- the lateral (XY) footprint
-    // is deliberately left unchanged.
+    // need to reshape the surrounding volume and secondary-neutron-
+    // biasing region to stay consistent, a much larger lift -- this
+    // approximates the tilt by lengthening BOTH the sensitive volume's
+    // and the dead layer's effective thickness by 1/cos(theta): the
+    // same chord-length-elongation model used for tilt-angle
+    // corrections in heavy-ion SEE testing (LET_eff = LET(0 deg)/
+    // cos(theta)). The dead layer needs this too, not just the
+    // sensitive volume -- a tilted beam traverses more physical dead-
+    // layer material before reaching the sensitive volume, same as it
+    // does in the sensitive volume itself (2026-07-19: originally only
+    // the sensitive volume was elongated; widened after review found
+    // that under-modeled dead-layer energy loss/straggling at high
+    // angles). The surrounding volume and secondary-neutron-biasing
+    // region remain un-rotated boxes -- their own shape is still a
+    // deliberately out-of-scope simplification, unaffected by this
+    // widening. Only valid for beam-footprint-covers-device test
+    // conditions (see Documentation/PANDA_MASTER_DESIGN) -- the lateral
+    // (XY) footprint is deliberately left unchanged for both layers.
     G4double fIncidentAngle = 0*deg;
 
     // Recomputed by Construct() every call as
@@ -107,6 +119,15 @@ private:
     // placement, surrounding-volume auto-grow sizing, production-cut
     // length), and the value GetSensitiveThickness() returns.
     G4double fEffectiveSensitiveThickness = 10*um;
+
+    // Same as fEffectiveSensitiveThickness, computed as
+    // fDeadThickness/cos(fIncidentAngle) -- same "never write back into
+    // the raw configured value" reasoning applies (Construct() runs
+    // twice per invocation). This is what actually sizes the dead
+    // layer's G4Box, its placement offset, the surrounding-volume auto-
+    // grow sizing, and the production-cut length, and is the value
+    // GetDeadThickness() returns.
+    G4double fEffectiveDeadThickness = 5*um;
 
     // Bulk material surrounding the dead+sensitive stack, matching the
     // sensitive volume's material (e.g. bulk Si around a Si junction).

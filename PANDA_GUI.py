@@ -135,10 +135,11 @@ class PandaGUI(QWidget):
         field_tooltips = {
             "Incident Angle (deg)":
                 "Approximates a beam tilted off the sensitive volume's "
-                "normal by dividing the effective sensitive thickness by "
-                "cos(angle) -- the chord-length-elongation model used for "
-                "tilt-angle corrections in heavy-ion SEE testing. Valid "
-                "range [0, 90). Lateral (XY) footprint is NOT adjusted.",
+                "normal by dividing both the effective sensitive AND dead "
+                "layer thickness by cos(angle) -- the chord-length-"
+                "elongation model used for tilt-angle corrections in "
+                "heavy-ion SEE testing. Valid range [0, 90). Lateral (XY) "
+                "footprint is NOT adjusted for either layer.",
         }
 
         for i, (label, default) in enumerate(labels, start=1):
@@ -398,50 +399,18 @@ class PandaGUI(QWidget):
             if self.vis_checkbox.isChecked():
                 f.write("/vis/open OGLSX\n")
 
-                # /vis/open alone does not create a scene -- only
-                # /vis/drawVolume implicitly does, later. /vis/scene/add/extent
-                # below needs one to already exist, so create it explicitly
-                # here; /vis/drawVolume then just adds the volume to it.
-                f.write("/vis/scene/create\n")
-
-                # Fixed camera extent scaled off total (dead + sensitive)
-                # thickness, NOT sensitiveXY/deadXY. Without this,
-                # /vis/drawVolume's auto-fit zoom frames the whole World
-                # volume, whose XY extent is auto-grown with
-                # sensitiveXY/deadXY (see DetectorConstruction::Construct())
-                # while its Z extent stays pinned near a fixed
-                # surroundingThickness floor -- so the same physical
-                # thickness renders at a wildly different, shrinking pixel
-                # scale as sensitiveXY grows (confirmed empirically: a
-                # 10 um vs. 1000 um sensitiveXY run at the same 1 um/10 um
-                # sensitive/dead thickness produces near-identical
-                # DepositedCharge_fC stats, so the *geometry* is unaffected
-                # -- only the auto-fit render scale is). Framing a window
-                # sized off thickness alone keeps the stack's apparent
-                # scale consistent across sensitiveXY/deadXY, at the cost
-                # of not showing a large device's full lateral footprint
-                # in one view.
-                total_thickness_um = (
-                    float(self.fields['Sensitive Thickness (um)'].text())
-                    + float(self.fields['Dead Thickness (um)'].text())
-                )
-
-                # The stack isn't centered at world z=0: the sensitive
-                # volume is centered on z=0, but the dead layer hangs
-                # below it (see Construct()'s DeadLayer placement), so
-                # the stack's true center sits deadThickness/2 below 0.
-                dead_thickness_um = float(self.fields['Dead Thickness (um)'].text())
-                z_center_um = -dead_thickness_um / 2.0
-
-                half_xy_um = 3.0 * total_thickness_um
-                half_z_um = total_thickness_um
-
-                f.write(
-                    "/vis/scene/add/extent "
-                    f"{-half_xy_um} {half_xy_um} "
-                    f"{-half_xy_um} {half_xy_um} "
-                    f"{z_center_um - half_z_um} {z_center_um + half_z_um} um\n"
-                )
+                # A previous version of this block also wrote
+                # /vis/scene/create + /vis/scene/add/extent, attempting to
+                # pin the camera's zoom scale independent of
+                # sensitiveXY/deadXY/thickness. Confirmed via a controlled
+                # A/B test (2026-07-19) that /vis/scene/add/extent is a
+                # no-op once /vis/drawVolume adds real geometry -- it
+                # produced pixel-identical renders with and without it, at
+                # every value tried. Removed rather than left in as
+                # misleading dead code. The overall camera zoom still
+                # varies with device geometry (auto-fit against whatever
+                # /vis/drawVolume actually draws) -- a known G4 viewer
+                # characteristic, not something fixed here.
 
                 # Side-on viewpoint, exactly along +X (no Z tilt): the
                 # dead layer and sensitive volume share the same XY
