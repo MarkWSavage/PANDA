@@ -492,6 +492,11 @@ G4VPhysicalVolume* DetectorConstruction::Construct()
     G4double cutLength = smallestDim / 10.0;
     cutLength = std::clamp(cutLength, 1.0 * nm, 0.7 * mm);
 
+    G4cout << "DetectorConstruction::Construct() -- SensitiveRegion "
+              "production cut: "
+           << cutLength / nm << " nm (smallest dimension "
+           << smallestDim / nm << " nm / 10)" << G4endl;
+
     // Every PANDA macro calls /run/initialize then /run/reinitializeGeometry
     // (see any Macros/*.mac), so Construct() runs twice per invocation --
     // once from initialize, once from the explicit reinit. Region names
