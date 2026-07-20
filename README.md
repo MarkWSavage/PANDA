@@ -1,6 +1,6 @@
 # PANDA
 
-**Current release: [v1.7.8](https://github.com/MarkWSavage/PANDA/releases/tag/v1.7.8) — Nuclear-Recoil Tail Documentation + Production-Cut Logging.** Documents the SRIM-invisible nuclear-recoil tail in the differential charge spectrum (see "Primary particles" below), confirmed via a 200 MeV Cl35 beam through a 0.2 um XY / 1 um thick Si sensitive volume (65 nm SRAM-scale), and adds a console printout of the auto-scaled `SensitiveRegion` production cut length (`DetectorConstruction::Construct()`) so it no longer has to be hand-computed to verify which geometry dimension is constraining it. See `Documentation/PANDA_MASTER_DESIGN` (Section 5, Version History) for what's frozen and what's in scope.
+**Current release: [v1.7.9](https://github.com/MarkWSavage/PANDA/releases/tag/v1.7.9) — Post-Logging Revalidation.** Reconfirms the McNulty/CUPID and Hitachi proton validations (bit-for-bit-matching confirmed-interaction counts and sigma_device against the prior baselines) after the v1.7.8 production-cut logging change, and regenerates the tracked `Results/Current` outputs for the 65 nm SRAM-scale Cl35 config (`run.mac`). See `Documentation/PANDA_MASTER_DESIGN` (Section 5, Version History) for what's frozen and what's in scope.
 
 **PANDA** — *Protons And Neutron charge Deposition in mAterials* — is a Geant4 Monte Carlo simulation for calculating charge deposition from energetic particles (protons, neutrons, ions) in semiconductor structures, for Single Event Effect (SEE) analysis.
 
