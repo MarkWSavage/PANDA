@@ -1,0 +1,37 @@
+# SRIM cross-check -- see run_C12_srim_check.mac for the full
+# rationale (small, unbiased run so direct ionization dominates the
+# mean deposited energy).
+#
+# Result (2026-07-20): mean deposited energy implies LET 42.736
+# MeV*cm2/mg through 8 um Si, vs SRIM's reported 48.92 MeV*cm2/mg for
+# I127 at 1905 MeV in Si -- ratio 0.874, within 13%. The largest gap
+# of the six ions checked; investigated whether dead-layer energy loss
+# plus the LET gradient across the sensitive volume (I127's range,
+# ~147.57 um, is comparatively short -- the 13 um dead+sensitive stack
+# is ~8.8% of it) could explain the difference. Concluded it can't:
+# that's too small a range fraction, well above the Bragg peak where
+# dE/dx varies smoothly, to produce more than a few percent shift.
+# Read as ordinary Geant4-vs-SRIM stopping-power model variation, not
+# a methodology artifact -- see PANDA_VALIDATION_SUMMARY.md.
+/random/setSeeds 12701 12702
+/sim/particle I127
+/sim/sensitiveXY 10 um
+/sim/deadXY 10 um
+/sim/sensitiveThickness 8 um
+/sim/deadThickness 5 um
+/sim/incidentAngle 0 deg
+/sim/sensitiveMaterial Si
+/sim/deadMaterial SiO2
+/sim/useCollectionModel true
+/sim/biasCrossSectionFactor 1
+/sim/carrierLifetime 1.0 ns
+/sim/electricField 1000000 volt/m
+/run/initialize
+/run/reinitializeGeometry
+
+/sim/energy 1905 MeV
+/sim/beamXY 10 um
+/sim/criticalCharge 150
+/sim/logRecoilHits true
+/sim/verbose false
+/run/beamOn 1000

@@ -1,0 +1,29 @@
+# SRIM cross-check -- see run_C12_srim_check.mac for the full
+# rationale (small, unbiased run so direct ionization dominates the
+# mean deposited energy).
+#
+# Result (2026-07-20): mean deposited energy implies LET 74.147
+# MeV*cm2/mg through 8 um Si, vs SRIM's reported 77.90 MeV*cm2/mg for
+# Au197 at 2955 MeV in Si -- ratio 0.952, within 4.8%.
+/random/setSeeds 19701 19702
+/sim/particle Au197
+/sim/sensitiveXY 10 um
+/sim/deadXY 10 um
+/sim/sensitiveThickness 8 um
+/sim/deadThickness 5 um
+/sim/incidentAngle 0 deg
+/sim/sensitiveMaterial Si
+/sim/deadMaterial SiO2
+/sim/useCollectionModel true
+/sim/biasCrossSectionFactor 1
+/sim/carrierLifetime 1.0 ns
+/sim/electricField 1000000 volt/m
+/run/initialize
+/run/reinitializeGeometry
+
+/sim/energy 2955 MeV
+/sim/beamXY 10 um
+/sim/criticalCharge 150
+/sim/logRecoilHits true
+/sim/verbose false
+/run/beamOn 1000

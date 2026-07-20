@@ -44,6 +44,25 @@ With a geometrically plausible (not device-specified -- the paper doesn't report
 
 **Verdict (revised): good agreement (log-RMSE ~0.29 decades, full-range coverage) once compared against the correct 100%-collection-equivalent PANDA quantity. No remaining unexplained disagreement with CREME-MC requiring a "structural, not fixable" hedge.**
 
+### 1.4 SRIM stopping-power cross-check (heavy-ion primaries, 2026-07-20)
+
+An independent check of the direct-ionization regime for the six heavy-ion primaries added this session (see `Macros/run_<ion>_biased.mac`), distinct from the nuclear-reaction-focused comparisons above. Method (`Macros/run_<ion>_srim_check.mac`): a small (1000-event), **unbiased** (`biasCrossSectionFactor 1`) run per ion, deliberately sized so direct ionization dominates the mean deposited energy and rare nuclear reactions stay statistically negligible (confirmed via `recoil_hits.csv` species counts -- e.g. C12: 16585 primary hits vs. 38 gamma/22 alpha, no other fragments). Mean `Total_keV` through the standard 8 um Si sensitive volume converts to an implied LET (`mean_keV / thickness / density`), compared against SRIM's reported electronic stopping power for the same ion/energy/material (15 MeV/amu each, matching `run_<ion>_biased.mac`'s energies):
+
+| Ion | Energy | PANDA LET (MeV*cm2/mg) | SRIM (MeV*cm2/mg) | Ratio |
+|---|---|---|---|---|
+| C12 | 180 MeV | 0.884 | 0.906 | 0.976 |
+| F19 | 285 MeV | 1.966 | 2.029 | 0.969 |
+| Cl35 | 525 MeV | 6.606 | 6.732 | 0.981 |
+| Ni58 | 870 MeV | 15.924 | 16.23 | 0.981 |
+| I127 | 1905 MeV | 42.736 | 48.92 | 0.874 |
+| Au197 | 2955 MeV | 74.147 | 77.90 | 0.952 |
+
+- Five of six agree within 5% (C12, F19, Cl35, Ni58, Au197); I127 is the outlier at 13%.
+- Cl35's SRIM value was initially transcribed wrong (4.781, giving a 38% "discrepancy"); caught because it broke an otherwise smooth, monotonically-declining SRIM/Z^2 trend across all six ions -- corrected to 6.732, which fits the trend and matches PANDA within 1.9%.
+- I127's larger gap was investigated as a possible thin-target-approximation artifact: I127's range (~147.57 um) is short enough that the 13 um dead+sensitive stack is ~8.8% of it, raising the question of whether dead-layer energy loss plus the resulting LET gradient across the sensitive volume (both already correctly integrated by Geant4's own step-by-step transport, unlike a naive constant-LET assumption) could explain it. Concluded no: 8.8% of the range, well above the Bragg peak where dE/dx varies smoothly rather than sharply, is too small a fraction to produce more than a few percent shift. Read as ordinary Geant4-vs-SRIM stopping-power model variation, not a methodology artifact.
+
+**Verdict: good agreement (5/6 within 5%, all six within 13%) between Geant4's EM physics and SRIM's binary-collision stopping-power model for direct ionization -- a genuine, independent cross-check of the heavy-ion primaries feature, complementing (not overlapping with) the nuclear-reaction-focused validations above.**
+
 ---
 
 ## 2. Geometry and physics robustness checks

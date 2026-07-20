@@ -1,0 +1,32 @@
+# SRIM cross-check -- see run_C12_srim_check.mac for the full
+# rationale (small, unbiased run so direct ionization dominates the
+# mean deposited energy).
+#
+# Result (2026-07-20): mean deposited energy implies LET 6.606
+# MeV*cm2/mg through 8 um Si, vs SRIM's reported 6.732 MeV*cm2/mg for
+# Cl35 at 525 MeV in Si -- ratio 0.981, within 1.9%. (An initially
+# reported SRIM value of 4.781 was a transcription error, caught by
+# noticing it broke an otherwise smooth SRIM/Z^2 trend across all six
+# ions -- see PANDA_VALIDATION_SUMMARY.md.)
+/random/setSeeds 35601 35602
+/sim/particle Cl35
+/sim/sensitiveXY 10 um
+/sim/deadXY 10 um
+/sim/sensitiveThickness 8 um
+/sim/deadThickness 5 um
+/sim/incidentAngle 0 deg
+/sim/sensitiveMaterial Si
+/sim/deadMaterial SiO2
+/sim/useCollectionModel true
+/sim/biasCrossSectionFactor 1
+/sim/carrierLifetime 1.0 ns
+/sim/electricField 1000000 volt/m
+/run/initialize
+/run/reinitializeGeometry
+
+/sim/energy 525 MeV
+/sim/beamXY 10 um
+/sim/criticalCharge 150
+/sim/logRecoilHits true
+/sim/verbose false
+/run/beamOn 1000
