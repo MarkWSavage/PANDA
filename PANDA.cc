@@ -6,6 +6,7 @@
 #include "G4EmStandardPhysics_option4.hh"
 #include "G4GenericBiasingPhysics.hh"
 #include "SEEBiasingOperator.hh"
+#include "NativeIonStoppingPhysics.hh"
 
 #include "DetectorConstruction.hh"
 #include "ActionInitialization.hh"
@@ -76,6 +77,24 @@ int main(int argc, char** argv)
     // ("G4EmStandard_opt4"), so ReplacePhysics finds and replaces the
     // one QGSP_BIC_HP already added.
     physicsList->ReplacePhysics(new G4EmStandardPhysics_option4(1, "ICRU73"));
+
+    // Partially corrects the Fe-redirect described above (2026-07-24):
+    // G4EMLOW8.8 actually ships native per-ion ICRU73 files for every Z
+    // from 3 to 80 (not just Fe/Ar), including Au197's own z79_14.dat --
+    // it's just never read by default. Tried using it for every Z>=19
+    // (matching the redirect's own range) and validated against SRIM
+    // across the full heavy-ion roster: Au197 improved (+17.8% -> +8.4%
+    // vs SRIM), but Ni58 got WORSE (+14.7% -> +17.8%) and I127 flipped
+    // sign (+6.4% -> -5.6%, similar magnitude) -- Fe's scaling
+    // approximation is already good for an ion this close to it (Ni is
+    // only 2 above Fe's Z=26), so blanket-switching to native data isn't
+    // a strict improvement. NativeIonStoppingPhysics scopes this to only
+    // Z>66 (past the midpoint between I127's Z=53, which stays
+    // Fe-scaled, and Au197's Z=79, which doesn't) -- see its .cc for the
+    // full SRIM numbers and mechanism (registers a replacement "ICRU73"
+    // table before G4IonParametrisedLossModel's own default one is ever
+    // added, exploiting AddDEDXTable's name-uniqueness check).
+    physicsList->RegisterPhysics(new NativeIonStoppingPhysics());
 
     // Note: heavy-ion primaries (e.g. C12, Au197) are NOT pre-created
     // here. G4IonTable::GetIon() needs GenericIon's own process manager
