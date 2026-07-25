@@ -1,0 +1,19 @@
+{
+    "particle": "proton",
+    "sensitive_material": "Si",
+    "dead_material": "SiO2",
+    "Energy (MeV)": "200",
+    "Sensitive XY (um)": "1000",
+    "Dead XY (um)": "1000",
+    "Sensitive Thickness (um)": "1",
+    "Dead Thickness (um)": "10",
+    "Incident Angle (deg)": "0",
+    "Beam XY (um)": "1000",
+    "Critical Charge (fC)": "150",
+    "Bias Cross Section Factor": "1041",
+    "Events": "1000000",
+    "visualization": true,
+    "collection_model": true,
+    "link_xy": true,
+    "log_recoil_hits": true
+}
