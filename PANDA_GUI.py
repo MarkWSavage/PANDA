@@ -2,6 +2,7 @@ import sys
 import os
 import subprocess
 import json
+import tempfile
 
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QLineEdit,
@@ -668,21 +669,60 @@ class PandaGUI(QWidget):
         # Under WSL2, xdg-open hands off to a Linux file manager that
         # shares this Qt app's own X11/Wayland (WSLg) session and
         # competes for window stacking with it -- it reliably opens
-        # behind PANDA's window instead of in front. Windows Explorer,
-        # launched directly, is owned entirely by Windows' own window
-        # manager and comes to the foreground as expected.
+        # behind PANDA's window instead of in front. Launching
+        # explorer.exe directly gets ownership away from that shared
+        # session, but on its own still isn't enough: Windows' foreground
+        # lock refuses SetForegroundWindow from a process not already in
+        # the foreground (which a WSL-interop-launched child counts as),
+        # and if a Results window is already open from a previous click,
+        # Explorer just flashes its taskbar entry instead of raising it.
+        # Route through a small PowerShell helper that opens/reuses the
+        # window via the Shell.Application COM object, then explicitly
+        # calls user32 ShowWindow/SetForegroundWindow on its HWND -- the
+        # standard workaround for this exact WSL2 focus-stealing issue.
         try:
             win_path = subprocess.check_output(
                 ["wslpath", "-w", self.results_dir], text=True
             ).strip()
+
+            ps_script = r'''
+param([string]$winPath)
+$shellApp = New-Object -ComObject Shell.Application
+$target = $shellApp.Windows() | Where-Object { $_.LocationURL -match [regex]::Escape((Split-Path $winPath -Leaf)) } | Select-Object -Last 1
+if (-not $target) {
+    Start-Process explorer.exe -ArgumentList $winPath
+    Start-Sleep -Milliseconds 700
+    $shellApp = New-Object -ComObject Shell.Application
+    $target = $shellApp.Windows() | Where-Object { $_.LocationURL -match [regex]::Escape((Split-Path $winPath -Leaf)) } | Select-Object -Last 1
+}
+if ($target) {
+    Add-Type -Name PandaWin32 -Namespace Panda -MemberDefinition '
+        [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+        [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    '
+    [Panda.PandaWin32]::ShowWindow([IntPtr]$target.HWND, 9)
+    [Panda.PandaWin32]::SetForegroundWindow([IntPtr]$target.HWND)
+}
+'''
+            ps1_path = os.path.join(tempfile.gettempdir(), "panda_open_results.ps1")
+            with open(ps1_path, "w") as f:
+                f.write(ps_script)
+            ps1_win_path = subprocess.check_output(
+                ["wslpath", "-w", ps1_path], text=True
+            ).strip()
+
             subprocess.Popen(
-                ["explorer.exe", win_path],
+                [
+                    "powershell.exe", "-NoProfile", "-WindowStyle", "Hidden",
+                    "-ExecutionPolicy", "Bypass",
+                    "-File", ps1_win_path, "-winPath", win_path,
+                ],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True
             )
         except (subprocess.CalledProcessError, FileNotFoundError):
-            # Not running under WSL (or explorer.exe/wslpath
+            # Not running under WSL (or explorer.exe/wslpath/powershell.exe
             # unavailable) -- fall back to the previous behavior.
             subprocess.Popen(
                 ["xdg-open", self.results_dir],
