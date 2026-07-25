@@ -665,12 +665,31 @@ class PandaGUI(QWidget):
             self.log(f"Loaded preset: {filename}")
 
     def open_results_folder(self):
-        subprocess.Popen(
-            ["xdg-open", self.results_dir],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True
-        )
+        # Under WSL2, xdg-open hands off to a Linux file manager that
+        # shares this Qt app's own X11/Wayland (WSLg) session and
+        # competes for window stacking with it -- it reliably opens
+        # behind PANDA's window instead of in front. Windows Explorer,
+        # launched directly, is owned entirely by Windows' own window
+        # manager and comes to the foreground as expected.
+        try:
+            win_path = subprocess.check_output(
+                ["wslpath", "-w", self.results_dir], text=True
+            ).strip()
+            subprocess.Popen(
+                ["explorer.exe", win_path],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # Not running under WSL (or explorer.exe/wslpath
+            # unavailable) -- fall back to the previous behavior.
+            subprocess.Popen(
+                ["xdg-open", self.results_dir],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True
+            )
 
     def open_file(self, filename):
         filepath = os.path.join(self.results_dir, filename)

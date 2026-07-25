@@ -7,6 +7,21 @@ import os
 RESULTS_DIR = os.path.join("Results", "Current")
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
+# Energy-equivalent charge conversion for the secondary MeV axis on the
+# cumulative cross-section plots -- same 3.6 eV/e-h-pair assumption
+# already used for CREME-MC comparisons (PANDA_VALIDATION_SUMMARY.md
+# 1.5): 1 MeV / 3.6 eV = 277777.8 pairs, each carrying one electron
+# charge (1.602176634e-19 C).
+MEV_TO_FC = (1e6 / 3.6) * 1.602176634e-19 * 1e15  # ~44.505 fC/MeV
+
+
+def _fc_to_mev(fc):
+    return np.asarray(fc) / MEV_TO_FC
+
+
+def _mev_to_fc(mev):
+    return np.asarray(mev) * MEV_TO_FC
+
 # -----------------------------
 # Parse run.mac
 # -----------------------------
@@ -146,6 +161,12 @@ bin_centers = np.sqrt(bins[:-1] * bins[1:])
 stats = {
     key: {
         "hist": np.zeros(len(bins) - 1),
+        # Sum of squared per-event weights per bin -- needed alongside
+        # "hist" (sum of weights) to get a proper importance-sampling
+        # variance estimate for the cumulative cross section's error
+        # bars below, not just a flat-count Poisson approximation that
+        # would be wrong whenever biasing is active (weights != 1).
+        "hist2": np.zeros(len(bins) - 1),
         "min": np.inf,
         "max": -np.inf,
         "sum": 0.0,
@@ -186,8 +207,10 @@ for chunk in pd.read_csv(
         # artificially boosted rare events would be overcounted by
         # roughly the bias factor.
         h, _ = np.histogram(q, bins=bins, weights=w)
+        h2, _ = np.histogram(q, bins=bins, weights=w**2)
         s = stats[key]
         s["hist"] += h
+        s["hist2"] += h2
         s["min"] = min(s["min"], np.min(q))
         s["max"] = max(s["max"], np.max(q))
         # Weighted sum for an unbiased mean estimate: mean = sum(w*q) / N,
@@ -263,26 +286,50 @@ for key, meta in METRICS.items():
     # Cross section
     sigma = beam_area_cm2 * prob
 
-    plt.figure(figsize=(8, 6))
-    plt.plot(bin_centers, sigma)
-    plt.xscale("log")
-    plt.yscale("log")
+    # Importance-sampling error bars: cum_counts2 is the reversed
+    # cumulative sum of squared per-event weights (see "hist2" above),
+    # i.e. Var(sum of weights) under the standard estimator for a sum of
+    # independent weighted indicators. This reduces to ordinary Poisson
+    # counting error (sqrt(N)/N) when biasing is off (all weights = 1).
+    cum_counts2 = np.cumsum(s["hist2"][::-1])[::-1]
+    prob_err = np.sqrt(cum_counts2) / countQ
+    sigma_err = beam_area_cm2 * prob_err
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    # errorevery thins the drawn error bars so 400 log-spaced bins don't
+    # turn into a solid smear of caps -- the underlying curve/data/CSV
+    # still carry the full-resolution uncertainty.
+    ax.errorbar(
+        bin_centers, sigma, yerr=sigma_err,
+        errorevery=10, capsize=2, elinewidth=0.8,
+    )
+    ax.set_xscale("log")
+    ax.set_yscale("log")
     if plot_xmin is not None:
-        plt.xlim(left=plot_xmin)
-    plt.xlabel(f"{label} Threshold (fC)")
-    plt.ylabel("Cross Section (cm²)")
-    plt.title(f"PANDA Cumulative Cross Section ({label})")
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(
+        ax.set_xlim(left=plot_xmin)
+    ax.set_xlabel(f"{label} Threshold (fC)")
+    ax.set_ylabel("Cross Section (cm²)")
+    ax.set_title(f"PANDA Cumulative Cross Section ({label})")
+    ax.grid(True)
+
+    # Secondary x-axis in MeV (energy-equivalent charge, 3.6 eV/e-h pair
+    # in Si) below the primary fC axis, for direct comparison against
+    # tools that report charge in energy-equivalent units (e.g.
+    # CREME-MC/MRED's Q(MeV) -- see PANDA_VALIDATION_SUMMARY.md 1.5).
+    secax = ax.secondary_xaxis(-0.18, functions=(_fc_to_mev, _mev_to_fc))
+    secax.set_xlabel(f"{label} Threshold (MeV)")
+
+    fig.subplots_adjust(bottom=0.24)
+    fig.savefig(
         os.path.join(RESULTS_DIR, f"cumulative_cross_section_{suffix}.png")
     )
-    plt.close()
+    plt.close(fig)
 
     out = pd.DataFrame({
         "ChargeThreshold_fC": bin_centers,
         "Probability": prob,
-        "CrossSection_cm2": sigma
+        "CrossSection_cm2": sigma,
+        "CrossSection_Uncertainty_cm2": sigma_err,
     })
 
     out.to_csv(
