@@ -87,6 +87,27 @@ with open("run.mac", "r") as f:
 beam_area_cm2 = (beamXY * 1e-4)**2
 fluence = nParticles / beam_area_cm2
 
+# Geometry/particle/energy annotation shown on every plot, so a saved
+# figure is self-describing without having to cross-reference run.mac.
+_geom_lines = [f"{particle}, {energy:g} MeV"]
+_geom_lines.append(
+    f"Sensitive: {sensitiveXY:g}×{sensitiveXY:g}×{sensitiveThickness:g} µm"
+)
+_geom_lines.append(f"Dead layer: {deadThickness:g} µm")
+if incidentAngle:
+    _geom_lines.append(f"Incident angle: {incidentAngle:g}°")
+GEOMETRY_TEXT = "\n".join(_geom_lines)
+
+
+def _add_geometry_textbox(ax):
+    ax.text(
+        0.97, 0.97, GEOMETRY_TEXT,
+        transform=ax.transAxes,
+        ha="right", va="top",
+        fontsize=8,
+        bbox=dict(boxstyle="round", facecolor="white", edgecolor="gray", alpha=0.85),
+    )
+
 print("\nRun conditions:")
 print("Particle:", particle)
 print("Energy (MeV):", energy)
@@ -261,6 +282,7 @@ for key, meta in METRICS.items():
     plt.ylabel("Counts")
     plt.title(f"PANDA Differential Charge Spectrum ({label})")
     plt.grid(True)
+    _add_geometry_textbox(plt.gca())
     plt.tight_layout()
     plt.savefig(
         os.path.join(RESULTS_DIR, f"differential_charge_spectrum_{suffix}.png")
@@ -277,6 +299,7 @@ for key, meta in METRICS.items():
     plt.ylabel("P(Q ≥ q)")
     plt.title(f"PANDA Cumulative Probability ({label})")
     plt.grid(True)
+    _add_geometry_textbox(plt.gca())
     plt.tight_layout()
     plt.savefig(
         os.path.join(RESULTS_DIR, f"cumulative_probability_{suffix}.png")
@@ -311,6 +334,7 @@ for key, meta in METRICS.items():
     ax.set_ylabel("Cross Section (cm²)")
     ax.set_title(f"PANDA Cumulative Cross Section ({label})")
     ax.grid(True)
+    _add_geometry_textbox(ax)
 
     # Secondary x-axis in MeV (energy-equivalent charge, 3.6 eV/e-h pair
     # in Si) below the primary fC axis, for direct comparison against
@@ -322,6 +346,35 @@ for key, meta in METRICS.items():
     fig.subplots_adjust(bottom=0.24)
     fig.savefig(
         os.path.join(RESULTS_DIR, f"cumulative_cross_section_{suffix}.png")
+    )
+    plt.close(fig)
+
+    # Linear-threshold companion plot. The log-x version above mirrors
+    # CREME-MC convention, but the actual upset threshold for a given
+    # circuit (critical charge) isn't tied to that log spacing -- it can
+    # fall anywhere depending on circuit design, so a linear charge axis
+    # is the more honest comparison surface for a specific Qcrit. Same
+    # underlying data/error bars, just a different x-axis rendering.
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.errorbar(
+        bin_centers, sigma, yerr=sigma_err,
+        errorevery=10, capsize=2, elinewidth=0.8,
+    )
+    ax.set_yscale("log")
+    if plot_xmin is not None:
+        ax.set_xlim(left=plot_xmin)
+    ax.set_xlabel(f"{label} Threshold (fC)")
+    ax.set_ylabel("Cross Section (cm²)")
+    ax.set_title(f"PANDA Cumulative Cross Section ({label}, linear threshold)")
+    ax.grid(True)
+    _add_geometry_textbox(ax)
+
+    secax = ax.secondary_xaxis(-0.18, functions=(_fc_to_mev, _mev_to_fc))
+    secax.set_xlabel(f"{label} Threshold (MeV)")
+
+    fig.subplots_adjust(bottom=0.24)
+    fig.savefig(
+        os.path.join(RESULTS_DIR, f"cumulative_cross_section_{suffix}_linear.png")
     )
     plt.close(fig)
 
@@ -364,6 +417,7 @@ for meta in METRICS.values():
     print(f"  differential_charge_spectrum_{suffix}.png")
     print(f"  cumulative_probability_{suffix}.png")
     print(f"  cumulative_cross_section_{suffix}.png")
+    print(f"  cumulative_cross_section_{suffix}_linear.png")
     print(f"  cumulative_cross_section_{suffix}.csv")
 
 print("\nDone.")
