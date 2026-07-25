@@ -136,39 +136,32 @@ void SteppingAction::UserSteppingAction(const G4Step* step)
     hit.a = step->GetTrack()->GetParticleDefinition()->GetAtomicMass();
     hit.weight = weight;
 
-    // Geant4's navigator can emit near-zero-length "steps" when a track
-    // sits within floating-point tolerance of a geometric boundary
-    // (default surface tolerance ~1e-9 mm). Dividing edep by such a
-    // step length produces spuriously enormous LET -- seen in practice
-    // as an Al recoil reporting LET ~680 MeV*cm2/mg from a 1.6 pm
-    // "step" -- that reflects navigator noise, not the recoil's real
-    // energy loss. A 1nm floor (the original fix here) only catches
-    // that literal near-zero-division case; a full recoil_hits.csv
-    // export (10M-event proton/Si-SiO2 run) showed the same inflation
-    // persists smoothly out to ~100nm, from ordinary short steps
-    // (Landau/Urban straggling gives a short step's instantaneous
-    // dE/dx much more sample-to-sample variance than a long one) --
-    // e.g. an O16 recoil reporting LET ~84 MeV*cm2/mg from a 1.1nm
-    // step, vs. this same run's max LET of ~14.3 once restricted to
-    // steps >=100nm, matching the independently-established ~14.4
-    // ceiling for this geometry. Below this cutoff the hit is excluded
-    // from the per-hit LET export entirely (see below); its edep is
-    // still tiny (sub-keV to low-keV) and remains in the event's
-    // energy totals either way.
-    static const G4double kMinLETStepLength = 100.0 * nm;
-    G4bool validLETStep = (hit.stepLength >= kMinLETStepLength);
-
-    if (validLETStep)
-    {
-        G4double dEdx = edep / hit.stepLength;
-        G4double density =
-            fDetector->GetSensitiveLogical()->GetMaterial()->GetDensity();
-        hit.let = (dEdx / density) / (MeV * cm2 / mg);
-    }
-    else
-    {
-        hit.let = 0.0;
-    }
+    // LET (dE/dx) is not computed here from this single Geant4 step.
+    // A G4 "step" is bounded by whatever's shortest among production-
+    // cut/multiple-scattering step limits and volume boundaries -- an
+    // artifact of the simulation's internal granularity, not a
+    // physical distance. Dividing a tiny real edep by a short step
+    // amplifies ordinary Landau/Urban straggling sample-to-sample
+    // variance into spuriously large LET (previously seen up to
+    // ~680 MeV*cm2/mg from a 1.6pm navigator-tolerance step, and
+    // smoothly out to ~84 MeV*cm2/mg from an ordinary 1.1nm step). A
+    // fixed minimum step length used to gate this per-step, but since
+    // production cuts (and therefore typical step length) auto-scale
+    // down with geometry, that gate's correct absolute value doesn't
+    // change, while how much of a track's real path survives above it
+    // does -- shrinking the gate to compensate just re-admits the same
+    // straggling noise closer to the source (confirmed empirically:
+    // scaling the floor to 1.25% of a 260nm-thick sensitive volume
+    // dropped it to ~3nm and pushed max LET up to ~21, still climbing
+    // as step length shrank further, the same unconverged signature as
+    // the original artifact). The actual fix: accumulate edep and path
+    // length across an entire track's *consecutive* steps inside the
+    // sensitive volume (EventAction::AccumulateRecoilHit(), below) and
+    // only compute LET once that running total reaches a validated
+    // absolute minimum path -- geometry-independent, since it no
+    // longer depends on how finely Geant4 happened to subdivide that
+    // path into individual steps.
+    hit.let = 0.0; // recomputed by EventAction once its window closes
 
     auto prePoint  = step->GetPreStepPoint();
     auto postPoint = step->GetPostStepPoint();
@@ -224,11 +217,10 @@ void SteppingAction::UserSteppingAction(const G4Step* step)
             ? postPoint->GetProcessDefinedStep()->GetProcessName()
             : G4String("unknown");
 
-    // Store hit -- skip the tolerance-artifact steps identified above so
-    // they don't pollute the per-hit LET export/spectrum with a bogus
-    // (near-zero-stepLength, near-zero-edep) data point.
-    if (validLETStep)
-        fEventAction->AddHit(hit);
+    // Feed this raw step into the track-level LET accumulator (see the
+    // comment above); EventAction decides internally whether/when a
+    // window has accumulated enough path to export a hit.
+    fEventAction->AccumulateRecoilHit(hit);
 
     // Collected-charge model.
     // This is ALWAYS evaluated so that both the raw deposited charge

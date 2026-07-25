@@ -19,6 +19,16 @@ std::atomic<G4long>   EventAction::fsEventCount{0};
 namespace {
     const char* kResultsDir = "Results/Current";
 
+    // Minimum accumulated track path length (see
+    // EventAction::AccumulateRecoilHit()) before a per-hit LET value is
+    // considered reliable rather than Landau/Urban-straggling noise.
+    // Validated against a 10x10x8um Si/SiO2 reference geometry (gives
+    // the established ~14.4 MeV*cm2/mg Si-recoil ceiling there); this
+    // value is an absolute physical scale, not geometry-relative --
+    // do not rescale it to sensitive-volume thickness (tried and
+    // confirmed to just re-admit the same noise closer to the source).
+    const G4double kMinLETStepLength = 100.0 * nm;
+
     // std::atomic<double>::fetch_add/operator+= is C++20-only; this
     // project builds against Geant4 11.4's minimum (C++17), so
     // fsUpsetWeightSum is accumulated with a manual compare-exchange
@@ -120,10 +130,23 @@ void EventAction::BeginOfEventAction(const G4Event*)
 
     fEventWeight = 1.0;
     fMaxSingleEdep = 0.0;
+
+    fPendingTrackID = -1;
+    fPendingEdep = 0.0;
+    fPendingStepLength = 0.0;
 }
 
 void EventAction::EndOfEventAction(const G4Event* event)
 {
+    // Flush whatever's left of the current track's accumulated LET
+    // window (see AccumulateRecoilHit()) before this event's hits are
+    // read below -- otherwise the last track to touch the sensitive
+    // volume this event would lose its final window if it never
+    // reached the minimum path length via a later trackID-mismatch
+    // flush. Also guarantees no leakage into the next event.
+    FlushPendingRecoilHit();
+    fPendingTrackID = -1;
+
     auto detector =
         static_cast<const DetectorConstruction*>(
             G4RunManager::GetRunManager()
@@ -256,6 +279,61 @@ void EventAction::EndOfEventAction(const G4Event* event)
 void EventAction::AddHit(const Hit& hit)
 {
     fHits.push_back(hit);
+}
+
+void EventAction::AccumulateRecoilHit(const Hit& stepHit)
+{
+    if (stepHit.trackID != fPendingTrackID)
+    {
+        // A new track (or the first one this event) -- whatever was
+        // accumulated for the previous track is done; export it if its
+        // window ever reached the minimum path length, else discard.
+        FlushPendingRecoilHit();
+        fPendingTrackID = stepHit.trackID;
+        fPendingEdep = 0.0;
+        fPendingStepLength = 0.0;
+    }
+
+    fPendingEdep += stepHit.edep;
+    fPendingStepLength += stepHit.stepLength;
+
+    // Particle/Z/A/weight/parentID are constant for a given TrackID;
+    // position/time/process/stepNumber track the latest step in the
+    // window. Overwritten below with the accumulated edep/stepLength.
+    fPendingHit = stepHit;
+
+    if (fPendingStepLength >= kMinLETStepLength)
+    {
+        FlushPendingRecoilHit();
+        // Same track may continue further inside the sensitive volume
+        // (e.g. a lateral path much longer than the volume is thick)
+        // -- keep fPendingTrackID and start a fresh window for it.
+        fPendingEdep = 0.0;
+        fPendingStepLength = 0.0;
+    }
+}
+
+void EventAction::FlushPendingRecoilHit()
+{
+    if (fPendingTrackID == -1 || fPendingStepLength < kMinLETStepLength)
+        return; // nothing pending, or too short a path to be a
+                 // reliable dE/dx sample -- discarded, same treatment
+                 // a too-short single step got before this change
+
+    auto detector =
+        static_cast<const DetectorConstruction*>(
+            G4RunManager::GetRunManager()->GetUserDetectorConstruction());
+
+    G4double dEdx = fPendingEdep / fPendingStepLength;
+    G4double density =
+        detector->GetSensitiveLogical()->GetMaterial()->GetDensity();
+
+    Hit hit = fPendingHit;
+    hit.edep = fPendingEdep;
+    hit.stepLength = fPendingStepLength;
+    hit.let = (dEdx / density) / (MeV * cm2 / mg);
+
+    AddHit(hit);
 }
 
 void EventAction::AddProtonEdep(G4double edep)

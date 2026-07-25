@@ -62,6 +62,20 @@ public:
     // Event hit storage
     void AddHit(const Hit& hit);
 
+    // Track-level LET accumulator. Call once per qualifying step from
+    // SteppingAction (raw, single-step edep/stepLength -- no floor
+    // applied there). Consecutive steps sharing the same TrackID are
+    // summed here until the running path length reaches a validated
+    // minimum (see EventAction.cc), at which point one hit is exported
+    // with LET computed from the accumulated edep/path -- geometry-
+    // independent, since it no longer depends on Geant4's internal
+    // step granularity. A trailing partial window (track exits the
+    // sensitive volume, or the event ends, before reaching the
+    // minimum) is discarded, same as a too-short single step was
+    // before; its edep was already counted in the event totals via
+    // AddProtonEdep/AddRecoilEdep/etc regardless.
+    void AccumulateRecoilHit(const Hit& stepHit);
+
     // Controls
     void SetCriticalCharge(G4double qc);
     void SetVerbose(G4bool val);
@@ -94,7 +108,17 @@ public:
     static void PrintUpsetSummary();
 
 private:
+    void FlushPendingRecoilHit();
+
     std::vector<Hit> fHits;
+
+    // Track-level LET accumulator state (see AccumulateRecoilHit above).
+    // fPendingTrackID == -1 means "nothing pending" (a real G4 TrackID
+    // is always >= 1).
+    G4int fPendingTrackID = -1;
+    G4double fPendingEdep = 0.0;
+    G4double fPendingStepLength = 0.0;
+    Hit fPendingHit;
 
 // Collected charge accumulator
     G4double fCollectedCharge = 0.0;
